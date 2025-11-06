@@ -1,0 +1,64 @@
+{
+    "quizzes": [
+      {
+        "name": "LCD - Fundamentos",
+        "questions": [
+          {
+            "question": "O que significa LCD?",
+            "points": 5,
+            "correct": 2,
+            "options": [
+              "Logic Control Device",
+              "Liquid Color Display",
+              "Liquid Crystal Display",
+              "Light Control Display"
+            ]
+          },
+          {
+            "question": "Qual destes é um tipo de painel usado em LCDs?",
+            "points": 4,
+            "correct": 1,
+            "options": [
+              "OLED",
+              "IPS",
+              "CRT",
+              "Plasma"
+            ]
+          },
+          {
+            "question": "Qual é a principal vantagem dos monitores LCD sobre CRT?",
+            "points": 3,
+            "correct": 0,
+            "options": [
+              "Menor consumo de energia",
+              "Maior contraste",
+              "Mais barato",
+              "Melhor som"
+            ]
+          },
+          {
+            "question": "Qual componente controla o brilho do LCD?",
+            "points": 4,
+            "correct": 3,
+            "options": [
+              "Filtro de cor",
+              "Camada de vidro",
+              "Cristal líquido",
+              "Backlight"
+            ]
+          },
+          {
+            "question": "O que acontece quando a tensão é aplicada a um cristal líquido?",
+            "points": 5,
+            "correct": 2,
+            "options": [
+              "Fica opaco permanentemente",
+              "Fica colorido",
+              "Muda a orientação das moléculas",
+              "Aumenta o brilho"
+            ]
+          }
+        ]
+      }
+    ]
+  }

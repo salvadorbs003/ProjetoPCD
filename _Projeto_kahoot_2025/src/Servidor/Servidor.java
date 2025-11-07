@@ -8,7 +8,6 @@ import java.util.Map;
 import java.util.Scanner;
 
 import Cliente.ClientHandler;
-import Cliente.GameState;
 import GameState.QuizLoader;
 
 import java.util.*;
@@ -18,6 +17,7 @@ public class Servidor {
 	private static final int PORT = 12345;
     private static final Map<String, GameState> salas = new HashMap<>();
     private static final Random random = new Random();
+    private static final Map<String, List<ClientHandler>> clientesPorSala = new HashMap<>();
     
     public static void main(String[] args) {
         try (ServerSocket serverSocket = new ServerSocket(PORT)) {
@@ -87,8 +87,19 @@ public class Servidor {
         System.out.println(" Sala " + pin + " encerrada.");
     }
     
-    
+    public static synchronized void registarCliente(String pin, ClientHandler cliente) {
+        clientesPorSala.computeIfAbsent(pin, k -> new ArrayList<>()).add(cliente);
+        System.out.println("Cliente registado na sala " + pin + ". Total: " + clientesPorSala.get(pin).size());
+    }
+    public static synchronized void notificarTodosClientes(String pin, String mensagem) {
+        List<ClientHandler> clientes = clientesPorSala.get(pin);
+        if (clientes != null) {
+            for (ClientHandler cliente : clientes) {
+                cliente.enviarMensagem(mensagem);
+            }
+            System.out.println("Mensagem '" + mensagem + "' enviada para " + clientes.size() + " clientes");
+        }
     
 
-
+    }
 }

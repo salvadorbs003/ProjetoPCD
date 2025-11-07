@@ -8,6 +8,7 @@ import java.net.Socket;
 
 import GameState.Equipa;
 import GameState.Jogador;
+import Servidor.GameState;
 import Servidor.Servidor;
 
 public class ClientHandler implements Runnable {
@@ -15,9 +16,16 @@ public class ClientHandler implements Runnable {
     private Socket socket;
     private BufferedReader in;
     private PrintWriter out;
+    private String pinSala;
+    private String nomeJogador;
 
     public ClientHandler(Socket socket) {
         this.socket = socket;
+    }
+    public void enviarMensagem(String mensagem) {
+        if (out != null) {
+            out.println(mensagem);
+        }
     }
 
     public void run() {
@@ -36,6 +44,9 @@ public class ClientHandler implements Runnable {
                         String pin = partes[1];
                         String equipa = partes[2];
                         String nome = partes[3];
+                        
+                        this.pinSala = pin;
+                        this.nomeJogador = nome;
 
                         GameState sala = Servidor.getSala(pin);
                         if (sala == null) {
@@ -69,6 +80,10 @@ public class ClientHandler implements Runnable {
                             // 4. Adicionar também ao GameState (para compatibilidade)
                             sala.adicionarJogador(novoJogador);
                             
+                            Servidor.registarCliente(pin, this);
+
+                            out.println("JOIN_OK " + nome + " entrou na sala " + pin + " da equipa " + equipa);
+                            
                             // 5. Mostrar estado no SERVIDOR
                             Equipa equipaAtualizada = Equipa.buscarEquipa(equipa);
                             System.out.println(nome + " juntou-se à equipa " + equipa);
@@ -76,6 +91,7 @@ public class ClientHandler implements Runnable {
                             if (equipaAtualizada.estaIncompleta()) {
                                 System.out.println("Equipa Incompleta - 1/2 jogadores");
                                 out.println("ESTADO_EQUIPA INCOMPLETA"); 
+                                
                             } else if (equipaAtualizada.estaCompleta()) {
                                 System.out.println("Equipa " + equipa + " completa! 2/2 jogadores");
                                 out.println("ESTADO_EQUIPA COMPLETA");
@@ -84,10 +100,9 @@ public class ClientHandler implements Runnable {
                             // 6. Verificar se jogo pode iniciar (2 equipas completas)
                             if (Equipa.podeIniciarJogo()) {
                                 System.out.println("Jogo pode iniciar!");
-                            }
+                                Servidor.notificarTodosClientes(pin, "JOGO_INICIAR");                            }
                         }
 
-                        out.println("JOIN_OK " + nome + " entrou na sala " + pin + " da equipa " + equipa);
                     } else {
                         out.println("JOIN_ERROR Formato inválido! Usa: JOIN <PIN> <Equipa> <Nome>");
                     }

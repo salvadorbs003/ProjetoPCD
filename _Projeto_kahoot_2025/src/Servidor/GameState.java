@@ -1,4 +1,4 @@
-package Cliente;
+package Servidor;
 
 
 import java.util.ArrayList;
@@ -47,16 +47,18 @@ public class GameState {
                         .anyMatch(j -> j.getNome().equalsIgnoreCase(nome));
     }
 
-    public synchronized boolean canStart(){
-        if (teams.size() != 2) {
-        return false;
-    }
-    for (Equipa equipa : teams.values()) {
-        if(equipa.getNumeroJogadores() != 2){
-            return false;
+    public synchronized boolean canStart() {
+        if (teams.size() < 2) {
+            return false; // Precisa de pelo menos 2 equipas
         }
         
-    }
-    return true;
+        int equipasCompletas = 0;
+        for (Equipa equipa : teams.values()) {
+            if (equipa.estaCompleta()) {
+                equipasCompletas++;
+            }
+        }
+        
+        return equipasCompletas >= 2; // 2 equipas completas
     }
 }

@@ -57,6 +57,16 @@ public class Cliente {
                 System.out.println("Servidor: " + resposta);
 
                 if (resposta.startsWith("JOIN_OK")) {
+                	   System.out.println("Ligado com sucesso!");
+                } 
+                else if (resposta.startsWith("ESTADO_EQUIPA INCOMPLETA")) {
+                    System.out.println("Equipa incompleta - à espera do 2º jogador");
+                }
+                else if (resposta.startsWith("ESTADO_EQUIPA COMPLETA")) {
+                    System.out.println("Equipa completa! 2/2 jogadores");
+                }
+                else if (resposta.startsWith("JOGO_INICIAR")) {
+                    System.out.println("Todas as equipas prontas! A iniciar jogo...");
                     return true; // sucesso
                 } else if (resposta.startsWith("JOIN_ERROR")) {
                     return false; // erro no PIN ou formato

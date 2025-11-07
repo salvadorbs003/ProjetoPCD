@@ -64,15 +64,13 @@ public class Equipa {
 
     public static boolean podeIniciarJogo() {
         int equipasCompletas = 0;
+        
         for (Equipa e : todasEquipas) {
             if (e.estaCompleta()) {
                 equipasCompletas++;
             }
-            if (equipasCompletas >= 2) {
-                return true;
-            }
         }
-        return false;
+        return equipasCompletas >= 2;
     }
    
     public static List<Equipa> getTodasEquipas() {

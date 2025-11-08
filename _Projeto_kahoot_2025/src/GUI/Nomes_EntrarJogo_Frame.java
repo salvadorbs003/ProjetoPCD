@@ -21,7 +21,6 @@ import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 
 import Cliente.Cliente;
-import GameState.Equipa;
 import GameState.Jogador;
 import GameState.Lista_Jogadores;
 import GameState.QuizLoader;
@@ -170,64 +169,25 @@ public class Nomes_EntrarJogo_Frame {
             }
             
         } else if (estadoEquipa.equals("COMPLETA")) {
-            //  Equipa completa - esperar pela 2ª equipa
             JOptionPane.showMessageDialog(frame,
                 " Ligado com sucesso!\n\n" +
                 "Equipa completa! 2/2 jogadores\n" +
                 "À espera que a 2ª equipa fique completa...");
-            
-            esperarInicioJogo(equipa, nome);
+
+            // Em vez de consultar estado global, aguardamos pela notificação JOGO_INICIAR do servidor
+            // através do mesmo fluxo usado para equipas incompletas.
+            new Thread(() -> {
+                boolean jogoIniciou = cliente.ligarComRetorno();
+                if (jogoIniciou) {
+                    SwingUtilities.invokeLater(() -> {
+                        JOptionPane.showMessageDialog(frame, 
+                            " Todas as equipas prontas! A iniciar jogo...");
+                        iniciarJogo(nome);
+                        frame.dispose();
+                    });
+                }
+            }).start();
         }
-    }
-    private void esperarEquipaCompleta(String equipa, String nome) {
-        new Thread(() -> {
-            try {
-                while (true) {
-                    Thread.sleep(3000); // Verifica a cada 3 segundos
-                    
-                    // Verifica se a equipa ficou completa
-                    Cliente cliente = new Cliente("localhost", 12345, pin, equipa, "");
-                    String estado = cliente.verificarEstadoEquipa(equipa);
-                    
-                    if (estado.equals("COMPLETA")) {
-                        SwingUtilities.invokeLater(() -> {
-                            JOptionPane.showMessageDialog(frame, 
-                                "✅ Equipa completa! 2/2 jogadores\n" +
-                                "À espera que a 2ª equipa fique completa...");
-                            
-                            // Agora espera que a 2ª equipa também fique completa
-                            esperarInicioJogo(equipa, nome);
-                        });
-                        break;
-                    }
-                }
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }).start();
-    }
-        	 
-    private void esperarInicioJogo(String equipa, String nome) {
-        new Thread(() -> {
-            try {
-                while (true) {
-                    Thread.sleep(3000); // Verifica a cada 3 segundos
-                    
-                    // Verifica se o jogo pode iniciar (2 equipas completas)
-                    if (Equipa.podeIniciarJogo()) {
-                        SwingUtilities.invokeLater(() -> {
-                            JOptionPane.showMessageDialog(frame, 
-                                " Todas as equipas prontas! A iniciar jogo...");
-                            iniciarJogo(nome);
-                            frame.dispose();
-                        });
-                        break;
-                    }
-                }
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }).start();
     }
         		    
         private void iniciarJogo(String nome) { 

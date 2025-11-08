@@ -6,6 +6,13 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 
+import Protocolos.CheckSalaRequest;
+import Protocolos.CheckSalaResponse;
+import Protocolos.JoinRequest;
+import Protocolos.JoinResponse;
+import Protocolos.TeamStatusRequest;
+import Protocolos.TeamStatusResponse;
+
 //Vcs vão ter de manter a socket aberta para poderem ler pedidos por parte do 
 //cliente e poder enviar um pedido de espera para não haver o kick start 
 //automático da pagina de contagem decrescente como está at thee moment
@@ -17,6 +24,7 @@ public class Cliente {
     private String pin;
     private String equipa;
     private String nome;
+    private final JoinRequest join;
 
     public Cliente(String host, int port, String pin, String equipa, String nome) {
         this.host = host;
@@ -24,6 +32,7 @@ public class Cliente {
         this.pin = pin;
         this.equipa = equipa;
         this.nome = nome;
+        join = new JoinRequest(pin, nome, equipa);
     }
 
     public void ligar() {
@@ -32,7 +41,7 @@ public class Cliente {
              PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
 
             System.out.println(" Ligado ao servidor em " + host + ":" + port);
-            out.println("JOIN " + pin + " " + equipa + " " + nome);
+            out.println(join.serialize());
 
             String resposta;
             while ((resposta = in.readLine()) != null) {
@@ -50,15 +59,20 @@ public class Cliente {
              PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
 
             // Envia o pedido JOIN
-            out.println("JOIN " + pin + " " + equipa + " " + nome);
-
+            out.println(join.serialize());
+            
             String resposta;
             while ((resposta = in.readLine()) != null) {
                 System.out.println("Servidor: " + resposta);
+                if(JoinResponse.matches(resposta)){
+                    JoinResponse answer = JoinResponse.formJoin(resposta);
+                    if (answer.isOk()) {
+                           System.out.println("Ligado com sucesso!");
+                    }  else {
+                    return false; // erro no PIN ou formato
+                    }
 
-                if (resposta.startsWith("JOIN_OK")) {
-                	   System.out.println("Ligado com sucesso!");
-                } 
+                }
                 else if (resposta.startsWith("ESTADO_EQUIPA INCOMPLETA")) {
                     System.out.println("Equipa incompleta - à espera do 2º jogador");
                 }
@@ -68,8 +82,6 @@ public class Cliente {
                 else if (resposta.startsWith("JOGO_INICIAR")) {
                     System.out.println("Todas as equipas prontas! A iniciar jogo...");
                     return true; // sucesso
-                } else if (resposta.startsWith("JOIN_ERROR")) {
-                    return false; // erro no PIN ou formato
                 }
             }
 
@@ -99,19 +111,21 @@ public class Cliente {
         try (Socket socket = new Socket(host, port);
              BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
              PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
-
+            
+            CheckSalaRequest check = new CheckSalaRequest(pin);
             // primeira linha é sempre a mensagem de boas-vindas
             String bemVindo = in.readLine();
             System.out.println("Servidor: " + bemVindo);
 
             // envia o comando para verificar a sala
-            out.println("CHECK_SALA " + pin);
+            out.println(check.serialize());
 
             // lê a resposta real à verificação
             String resposta = in.readLine();
             System.out.println("Servidor: " + resposta);
+            CheckSalaResponse answer = CheckSalaResponse.fromRaw(resposta); 
 
-            return resposta != null && resposta.equals("SALA_OK");
+            return answer.isOk();
 
         } catch (IOException e) {
             System.err.println("❌ Erro ao validar sala: " + e.getMessage());
@@ -123,18 +137,24 @@ public class Cliente {
              BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
              PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
 
-            // Envia comando para verificar equipa
-            out.println("CHECK_EQUIPA " + pin + " " + nomeEquipa);
+            TeamStatusRequest status = new TeamStatusRequest(pin, nomeEquipa);
+
+            // Envia comando para verificar equipa usando o protocolo tipado
+            out.println(status.serialize());
 
             String resposta;
             while ((resposta = in.readLine()) != null) {
                 System.out.println("Servidor: " + resposta);
-                
-                if (resposta.startsWith("EQUIPA_COMPLETA")) {
-                    return "COMPLETA";
-                } else if (resposta.startsWith("EQUIPA_INCOMPLETA")) {
-                    return "INCOMPLETA";
+                if (TeamStatusResponse.matches(resposta)){
+                    TeamStatusResponse estado = TeamStatusResponse.fromRaw(resposta);
+                    if (estado.isCompleta()) {
+                        return "COMPLETA";
+                    } else {
+                        return "INCOMPLETA";
+                    }
+                    
                 }
+
             }
             return "INCOMPLETA";
 

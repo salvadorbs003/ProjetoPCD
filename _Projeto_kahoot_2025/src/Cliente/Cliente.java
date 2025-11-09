@@ -132,7 +132,9 @@ public class Cliente {
             return false;
         }
     }
-    public String verificarEstadoEquipa(String nomeEquipa) {
+    //Mias prático e resolve o problema do JPanel duplicado mesmo quando 
+    //já existem 2 jogadores na equipa
+    public int verificarEstadoEquipa(String nomeEquipa) {
         try (Socket socket = new Socket(host, port);
              BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
              PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
@@ -147,20 +149,15 @@ public class Cliente {
                 System.out.println("Servidor: " + resposta);
                 if (TeamStatusResponse.matches(resposta)){
                     TeamStatusResponse estado = TeamStatusResponse.fromRaw(resposta);
-                    if (estado.isCompleta()) {
-                        return "COMPLETA";
-                    } else {
-                        return "INCOMPLETA";
-                    }
-                    
+                    return estado.getPlayerCount();
                 }
 
             }
-            return "INCOMPLETA";
+            return -1;
 
         } catch (IOException e) {
             System.err.println("❌ Erro ao verificar equipa: " + e.getMessage());
-            return "INCOMPLETA";
+            return -1;
         }
     }
 

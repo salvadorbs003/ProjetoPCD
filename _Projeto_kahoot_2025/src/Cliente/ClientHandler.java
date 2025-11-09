@@ -40,6 +40,7 @@ public class ClientHandler implements Runnable {
     //and might originate some unexpected errors
 
     public void run() {
+        System.out.println("Im a new thread!");
         try {
             in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             out = new PrintWriter(socket.getOutputStream(), true);
@@ -72,12 +73,12 @@ public class ClientHandler implements Runnable {
                     }
 
                     synchronized (sala) {
-                        // 1. Verificar se nome já existe Should be separeted method
-                        //called by the run()
+                        // 1. Verificar se nome já existe 
                         if (sala.existeJogador(nomeJogador)) {
                             out.println(JoinResponse.error("Nome já em uso!").serialize());
                             continue;
                         }
+                        System.out.println("Passou o nome do jogador");
 
                         // 2. Verificar se equipa está cheia no contexto da sala (sem estado global)
                         Equipa equipaObj = sala.getEquipa(equipaNome);
@@ -85,6 +86,7 @@ public class ClientHandler implements Runnable {
                             out.println(JoinResponse.error("Equipa " + equipaNome + " está cheia! (2/2 jogadores)").serialize());
                             continue;
                         }
+                        System.out.println("A equipa (não) existe e está incompleta");
 
                         // 3. Instanciar o jogador do lado do servidor e registar na equipa da sala
                         Jogador novoJogador = new Jogador(nomeJogador);

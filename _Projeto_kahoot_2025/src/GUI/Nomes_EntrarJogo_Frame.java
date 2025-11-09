@@ -140,9 +140,10 @@ public class Nomes_EntrarJogo_Frame {
             JOptionPane.showMessageDialog(frame, "PIN inválido!");
             return;
         }
-        String estadoEquipa = cliente.verificarEstadoEquipa(equipa);
+        int estadoEquipa = cliente.verificarEstadoEquipa(equipa);
+        System.out.println(estadoEquipa);
         
-        if (estadoEquipa.equals("INCOMPLETA")) {
+        if (estadoEquipa == 0) {
             int resposta = JOptionPane.showConfirmDialog(frame, 
                 "Ligado com sucesso à sala!\n\n" +
                 "Equipa incompleta, falta 1 membro!\n" +
@@ -168,7 +169,7 @@ public class Nomes_EntrarJogo_Frame {
                 frame.dispose();
             }
             
-        } else if (estadoEquipa.equals("COMPLETA")) {
+        } else if (estadoEquipa==1) {
             JOptionPane.showMessageDialog(frame,
                 " Ligado com sucesso!\n\n" +
                 "Equipa completa! 2/2 jogadores\n" +
@@ -187,6 +188,18 @@ public class Nomes_EntrarJogo_Frame {
                     });
                 }
             }).start();
+        } else if (estadoEquipa > 1) {
+            JOptionPane.showMessageDialog(frame,
+                "Esta equipa já se encontra completa",
+                "Erro",
+                JOptionPane.ERROR_MESSAGE);
+            return;
+        } else {
+            JOptionPane.showMessageDialog(frame,
+                "Não foi possível obter o estado da equipa. Tenta novamente.",
+                "Erro",
+                JOptionPane.ERROR_MESSAGE);
+            return;
         }
     }
         		    
@@ -201,8 +214,5 @@ public class Nomes_EntrarJogo_Frame {
             frame.dispose();
             new Entrada_Jogo_Frame();
     }
-    private String verificarEstadoEquipa(String nomeEquipa) {
-        Cliente cliente = new Cliente("localhost", 12345, pin, nomeEquipa, "");
-        return cliente.verificarEstadoEquipa(nomeEquipa);
-    }
+
 }

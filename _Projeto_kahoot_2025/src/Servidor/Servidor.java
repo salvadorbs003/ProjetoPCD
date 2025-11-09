@@ -88,6 +88,7 @@ public class Servidor {
     }
     
     public static synchronized void registarCliente(String pin, ClientHandler cliente) {
+        System.out.println("Im in ClientesPorSala");
         clientesPorSala.computeIfAbsent(pin, k -> new ArrayList<>()).add(cliente);
         System.out.println("Cliente registado na sala " + pin + ". Total: " + clientesPorSala.get(pin).size());
     }

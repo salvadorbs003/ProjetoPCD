@@ -1,20 +1,22 @@
 package Servidor;
 
+import GameState.Equipa;
+import GameState.Jogador;
+import Servidor.GameState;
+import GameState.QuizLoader;
+import Cliente.ClientHandler;
+import GUI.Pergunta;
+import Protocolos.*;
+
 import java.io.IOException;
+import java.io.Serializable;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Scanner;
-
-import Cliente.ClientHandler;
-import GameState.QuizLoader;
-
 import java.util.*;
 
 public class Servidor {
-	
-	private static final int PORT = 12345;
+    
+    private static final int PORT = 12345;
     private static final Map<String, GameState> salas = new HashMap<>();
     private static final Random random = new Random();
     private static final Map<String, List<ClientHandler>> clientesPorSala = new HashMap<>();
@@ -23,7 +25,7 @@ public class Servidor {
         try (ServerSocket serverSocket = new ServerSocket(PORT)) {
             System.out.println("Servidor ativo na porta " + PORT);
             
-            
+            // Thread para comandos do admin
             new Thread(() -> {
                 Scanner sc = new Scanner(System.in);
                 while (true) {
@@ -42,9 +44,10 @@ public class Servidor {
                 }
             }).start();
             
-
+            // Loop principal para aceitar clientes
             while (true) {
                 Socket socket = serverSocket.accept();
+                System.out.println("Nova conexão: " + socket.getInetAddress());
                 new Thread(new ClientHandler(socket)).start();
             }
         } catch (IOException e) {
@@ -54,15 +57,17 @@ public class Servidor {
     
     private static synchronized void criarSala() {
         String pin = gerarPIN();
-        GameState novaSala = new GameState(pin, QuizLoader.load("src/lista_perguntas.json"));
+        List<Pergunta> perguntas = QuizLoader.load("src/lista_perguntas.json");
+        GameState novaSala = new GameState(pin, perguntas);
         salas.put(pin, novaSala);
-        System.out.println(" Nova sala criada com PIN: " + pin);
+        clientesPorSala.put(pin, new ArrayList<>());
+        System.out.println("Nova sala criada com PIN: " + pin);
     }
     
     private static String gerarPIN() {
         String pin;
         do {
-            pin = String.format("%06d", random.nextInt(1_000_000)); // 000000–999999
+            pin = String.format("%06d", random.nextInt(1_000_000));
         } while (salas.containsKey(pin));
         return pin;
     }
@@ -75,6 +80,7 @@ public class Servidor {
             for (String pin : salas.keySet()) {
                 System.out.println("→ Sala " + pin);
             }
+      
         }
     }
     
@@ -84,23 +90,171 @@ public class Servidor {
     
     public static synchronized void removerSala(String pin) {
         salas.remove(pin);
-        System.out.println(" Sala " + pin + " encerrada.");
+        clientesPorSala.remove(pin);
+        System.out.println("Sala " + pin + " encerrada.");
     }
     
     public static synchronized void registarCliente(String pin, ClientHandler cliente) {
-    	 System.out.println("Im in ClientesPorSala");
         clientesPorSala.computeIfAbsent(pin, k -> new ArrayList<>()).add(cliente);
         System.out.println("Cliente registado na sala " + pin + ". Total: " + clientesPorSala.get(pin).size());
     }
-    public static synchronized void notificarTodosClientes(String pin, String mensagem) {
+    
+    public static synchronized void removerCliente(String pin, ClientHandler cliente) {
         List<ClientHandler> clientes = clientesPorSala.get(pin);
         if (clientes != null) {
-            for (ClientHandler cliente : clientes) {
-                cliente.enviarMensagem(mensagem);
+            clientes.remove(cliente);
+            System.out.println("Cliente removido da sala " + pin + ". Restantes: " + clientes.size());
+            if (clientes.isEmpty()) {
+                removerSala(pin);
             }
-            System.out.println("Mensagem '" + mensagem + "' enviada para " + clientes.size() + " clientes");
         }
+    }
     
-
+    public static synchronized void notificarTodosClientes(String pin, Serializable mensagem) {
+        List<ClientHandler> clientes = clientesPorSala.get(pin);
+        if (clientes == null || clientes.isEmpty()) {
+            return;
+        }
+        Iterator<ClientHandler> it = clientes.iterator();
+        int enviados = 0;
+        while (it.hasNext()) {
+            ClientHandler cliente = it.next();
+            try {
+                cliente.enviarMensagem(mensagem);
+                enviados++;
+            } catch (Exception e) {
+                System.err.println("Erro a notificar cliente: " + e.getMessage());
+                it.remove();
+            }
+        }
+        System.out.println("Mensagem " + mensagem.getClass().getSimpleName()
+            + " enviada para " + enviados + " clientes na sala " + pin);
+    }
+    
+    public static void processMsg(ClientHandler handler, Object obj) {
+        try {
+            if (obj instanceof JoinRequest join) {
+                processarJoin(handler, join);
+            } else if (obj instanceof CheckSalaRequest check) {
+                handler.enviarMensagem(processarCheckSala(check));
+            } else if (obj instanceof TeamStatusRequest req) {
+                handler.enviarMensagem(processarTeamStatus(req));
+            } else if (obj instanceof LobbyStateRequest lobbyReq) {
+                handler.enviarMensagem(processarLobbyState(lobbyReq, handler));
+            } else {
+                System.err.println("Mensagem desconhecida: " + obj.getClass().getSimpleName());
+                handler.enviarMensagem(new ErrorResponse("Protocolo não suportado"));
+            }
+        } catch (Exception e) {
+            System.err.println("Erro a processar mensagem: " + e.getMessage());
+            e.printStackTrace();
+            try {
+                handler.enviarMensagem(new ErrorResponse("Erro interno do servidor"));
+            } catch (Exception ex) {
+                System.err.println("Falha ao enviar mensagem de erro: " + ex.getMessage());
+            }
+        }
+    }
+    
+    public static CheckSalaResponse processarCheckSala(CheckSalaRequest request) {
+        GameState sala = getSala(request.getPin());
+        if (sala != null) {
+            return CheckSalaResponse.ok("Sala " + request.getPin() + " existe e está ativa.");
+        } else {
+            return CheckSalaResponse.error("Sala " + request.getPin() + " não existe.");
+        }
+    }
+    
+    public static void processarJoin(ClientHandler handler, JoinRequest join) {
+        GameState sala = getSala(join.getPinSala());
+        if (sala == null) {
+            handler.enviarMensagem(JoinResponse.error("Sala inexistente!"));
+            return;
+        }
+        synchronized (sala) {
+            String nome = join.getJogadorNome();
+            String equipa = join.getNomeEquipa();
+            
+            if (nome == null || nome.trim().isEmpty()) {
+                handler.enviarMensagem(JoinResponse.error("Nome do jogador inválido!"));
+                return;
+            }
+            if (equipa == null || equipa.trim().isEmpty()) {
+                handler.enviarMensagem(JoinResponse.error("Nome da equipa inválido!"));
+                return;
+            }
+            
+            if (sala.existeJogador(nome)) {
+                handler.enviarMensagem(JoinResponse.error("Já existe um jogador com o nome '" + nome + "' na sala."));
+                return;
+            }
+            
+            Equipa team = sala.getEquipa(equipa);
+            if (team != null && team.estaCompleta()) {
+                handler.enviarMensagem(JoinResponse.error("Equipa '" + equipa + "' está completa."));
+                return;
+            }
+            
+            Jogador novoJogador = new Jogador(nome.trim(), equipa.trim());
+            if (!sala.addEquipa(equipa.trim(), novoJogador)) {
+                handler.enviarMensagem(JoinResponse.error("Não foi possível adicionar à equipa."));
+                return;
+            }
+            
+            handler.setContext(join.getPinSala(), nome.trim(), equipa.trim());
+            registarCliente(join.getPinSala(), handler);
+            
+            Equipa equipaAtualizada = sala.getEquipa(equipa);
+            TeamStatusResponse estadoEquipa = equipaAtualizada.estaCompleta()
+                ? TeamStatusResponse.completa(equipa, equipaAtualizada.getNumeroJogadores())
+                : TeamStatusResponse.incompleta(equipa, equipaAtualizada.getNumeroJogadores());
+            
+            notificarTodosClientes(join.getPinSala(), estadoEquipa);
+            
+            if (sala.canStart()) {
+                GameStartNotification notify = new GameStartNotification(join.getPinSala());
+                notificarTodosClientes(join.getPinSala(), notify);
+            }
+            
+            handler.enviarMensagem(JoinResponse.ok("Jogador '" + nome + "' juntou-se à equipa '" + equipa + "' com sucesso!"));
+        }
+    }
+    
+    public static TeamStatusResponse processarTeamStatus(TeamStatusRequest req) {
+        GameState game = getSala(req.getPinSala());
+        if (game == null) {
+            return TeamStatusResponse.incompleta(req.getEquipaNome(), 0);
+        }
+        synchronized (game) {
+            Equipa team = game.getEquipa(req.getEquipaNome());
+            if (team == null) {
+                return TeamStatusResponse.incompleta(req.getEquipaNome(), 0);
+            }
+            return team.estaCompleta()
+                ? TeamStatusResponse.completa(req.getEquipaNome(), team.getNumeroJogadores())
+                : TeamStatusResponse.incompleta(req.getEquipaNome(), team.getNumeroJogadores());
+        }
+    }
+    
+    public static LobbyStateResponse processarLobbyState(LobbyStateRequest lobbyReq, ClientHandler handler) {
+        String pin = handler.getPinSala();
+        GameState sala = getSala(pin);
+        if (sala == null) {
+            return new LobbyStateResponse();
+        }
+        synchronized (sala) {
+            return new LobbyStateResponse();
+        }
+    }
+    
+    private static class ErrorResponse implements Serializable {
+        private static final long serialVersionUID = 1L;
+        private final String error;
+        public ErrorResponse(String error) {
+            this.error = error;
+        }
+        public String getError() {
+            return error;
+        }
     }
 }

@@ -1,12 +1,22 @@
 package Protocolos;
 
-public class TeamStatusRequest {
+import java.io.Serializable;
+
+public final class TeamStatusRequest implements Serializable{
+    private static final long serialVersionUID = 1L;
     private final String pinSala;
     private final String equipaNome;
+    private final String jogadorNome;
 
-    public TeamStatusRequest(String pinSala, String equipaNome) {
+    
+    public TeamStatusRequest(String pinSala, String equipaNome, String jogadorNome) {
         this.pinSala = pinSala;
         this.equipaNome = equipaNome;
+        this.jogadorNome = jogadorNome;
+    }
+
+    public String getJogadorNome() {
+        return jogadorNome;
     }
 
     public String getPinSala() {
@@ -15,23 +25,5 @@ public class TeamStatusRequest {
 
     public String getEquipaNome() {
         return equipaNome;
-    }
-
-    public String serialize() {
-        return "CHECK_EQUIPA " + pinSala + " " + equipaNome;
-    }
-
-    public static boolean matches(String linha) { return linha != null && linha.startsWith("CHECK_EQUIPA"); }
-
-    public static TeamStatusRequest fromRaw(String linha) { 
-        if (!matches(linha)) {
-            throw new IllegalArgumentException("Mensagem não é CHECK_EQUIPA");
-        }
-
-        String[] partes = linha.trim().split("\\s+", 3);
-        if (partes.length != 3) {
-            throw new IllegalArgumentException("Formato CHECK_EQUIPA inválido");
-        }
-        return new TeamStatusRequest(partes[1], partes[2]); 
     }
 }

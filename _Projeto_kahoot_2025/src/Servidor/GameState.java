@@ -56,6 +56,8 @@ public class GameState {
         }
         
         return equipasCompletas >= 2; // 2 equipas completas
+        
+        
     }
 
     public synchronized Equipa getEquipa(String nome){
@@ -69,6 +71,13 @@ public class GameState {
     // Retorna uma cópia das equipas da sala para que os handlers possam apresentar estado
     public synchronized List<Equipa> listarEquipas() {
         return new ArrayList<>(teams.values());
+    }
+    public synchronized int getNumeroJogadoresEquipa(String nomeEquipa) {
+        Equipa equipa = teams.get(nomeEquipa);
+        if (equipa == null) {
+            return 0;
+        }
+        return equipa.getNumeroJogadores();
     }
      
 }

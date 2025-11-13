@@ -156,12 +156,12 @@ public class Nomes_EntrarJogo_Frame {
 
                  if (resposta == JOptionPane.YES_OPTION) {
                      new Thread(() -> {
-                         boolean jogoIniciou = cliente.ligarComRetorno();
+                         boolean jogoIniciou = cliente.ligar();
                          if (jogoIniciou) {
                              SwingUtilities.invokeLater(() -> {
                                  JOptionPane.showMessageDialog(frame, 
                                      " Todas as equipas prontas! A iniciar jogo...");
-                                 iniciarJogo(nome);
+                                 iniciarJogo(nome, equipa);
                                  frame.dispose();
                              });
                          }
@@ -179,12 +179,12 @@ public class Nomes_EntrarJogo_Frame {
             // Em vez de consultar estado global, aguardamos pela notificação JOGO_INICIAR do servidor
             // através do mesmo fluxo usado para equipas incompletas.
             new Thread(() -> {
-                boolean jogoIniciou = cliente.ligarComRetorno();
+                boolean jogoIniciou = cliente.ligar();
                 if (jogoIniciou) {
                     SwingUtilities.invokeLater(() -> {
                         JOptionPane.showMessageDialog(frame, 
                             " Todas as equipas prontas! A iniciar jogo...");
-                        iniciarJogo(nome);
+                        iniciarJogo(nome, equipa);
                         frame.dispose();
                     });
                 }
@@ -204,8 +204,8 @@ public class Nomes_EntrarJogo_Frame {
         }
     }
         		    
-        private void iniciarJogo(String nome){
-            Jogador jogador = new Jogador(nome);
+        private void iniciarJogo(String nome,  String equipa){
+            Jogador jogador = new Jogador(nome, equipa);
             Lista_Jogadores.adicionarJogador(jogador);
             Lista_Jogadores.definirJogadorAtual(jogador);
 

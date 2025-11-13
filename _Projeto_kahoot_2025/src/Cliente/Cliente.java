@@ -1,13 +1,20 @@
 package Cliente;
 
-import java.io.BufferedReader;
+/**
+ * Camada cliente responsável por enviar/receber objetos de protocolo
+ * (JoinRequest, CheckSalaRequest, TeamStatusRequest, GameStartNotification).
+ * Cada método abre a socket necessária e trata o respetivo ciclo de pedidos.
+ */
+
+import java.io.EOFException;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.net.Socket;
 
 import Protocolos.CheckSalaRequest;
 import Protocolos.CheckSalaResponse;
+import Protocolos.GameStartNotification;
 import Protocolos.JoinRequest;
 import Protocolos.JoinResponse;
 import Protocolos.TeamStatusRequest;
@@ -24,7 +31,6 @@ public class Cliente {
     private String pin;
     private String equipa;
     private String nome;
-    private final JoinRequest join;
 
     public Cliente(String host, int port, String pin, String equipa, String nome) {
         this.host = host;
@@ -32,133 +38,105 @@ public class Cliente {
         this.pin = pin;
         this.equipa = equipa;
         this.nome = nome;
-        join = new JoinRequest(pin, nome, equipa);
     }
 
-    public void ligar() {
-        try (Socket socket = new Socket(host, port);
-             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-             PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
-
-            System.out.println(" Ligado ao servidor em " + host + ":" + port);
-            out.println(join.serialize());
-
-            String resposta;
-            while ((resposta = in.readLine()) != null) {
-                System.out.println("Servidor: " + resposta);
-            }
-
-        } catch (IOException e) {
-            System.err.println(" Erro ao ligar ao servidor: " + e.getMessage());
-        }
-    }
-    
-    public boolean ligarComRetorno() {
-        try (Socket socket = new Socket(host, port);
-             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-             PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
-
-            // Envia o pedido JOIN
-            out.println(join.serialize());
+    /**
+     * Mantém uma ligação longa: envia JoinRequest e escuta respostas
+     * JoinResponse/TeamStatusResponse/GameStartNotification até haver
+     * erro (false) ou sinal para arrancar o jogo (true).
+     */
+    public boolean ligar() {
+        try(Socket socket = new Socket(host, port);
+            ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
+            ObjectInputStream in = new ObjectInputStream(socket.getInputStream())) {
+            out.flush();
+            JoinRequest join = new JoinRequest(pin, nome, equipa);
             
-            String resposta;
-            while ((resposta = in.readLine()) != null) {
-                System.out.println("Servidor: " + resposta);
-                if(JoinResponse.matches(resposta)){
-                    JoinResponse answer = JoinResponse.formJoin(resposta);
-                    if (answer.isOk()) {
-                           System.out.println("Ligado com sucesso!");
-                    }  else {
-                    return false; // erro no PIN ou formato
-                    }
+            // Envia o pedido JOIN
+            out.writeObject(join);
+            out.flush();
 
-                }
-                else if (resposta.startsWith("ESTADO_EQUIPA INCOMPLETA")) {
-                    System.out.println("Equipa incompleta - à espera do 2º jogador");
-                }
-                else if (resposta.startsWith("ESTADO_EQUIPA COMPLETA")) {
-                    System.out.println("Equipa completa! 2/2 jogadores");
-                }
-                else if (resposta.startsWith("JOGO_INICIAR")) {
-                    System.out.println("Todas as equipas prontas! A iniciar jogo...");
-                    return true; // sucesso
+            while (true) {
+                Object answer = in.readObject();
+                if(answer instanceof JoinResponse joinResp){
+                    if(!joinResp.isOk()){
+                        System.err.println("Join falhou: " + joinResp.getMsg());
+                        return false;
+                    }
+                    System.out.println("Join ok: " + joinResp.getMsg()); // confirmação do servidor
+                    
+                } else if(answer instanceof TeamStatusResponse){
+                    System.out.println("Estado equipa: " + ((TeamStatusResponse) answer).getEquipaNome());
+                } else if(answer instanceof GameStartNotification){
+                    return true;
                 }
             }
 
-            return false; // se nunca receber resposta
-
-        } catch (IOException e) {
+        } catch (EOFException ignored) {
+            return false;
+        }catch (IOException | ClassNotFoundException e) {
             System.err.println(" Erro ao ligar ao servidor: " + e.getMessage());
             return false;
-        }
+        } 
     }
 
-    // public boolean startGame(){
-    //     try (Socket socket = new Socket(host, port);
-    //          BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-    //          PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
-
-    //         if(ligarComRetorno()){
-
-    //         }
-    //     }catch (Exception e) {
-    //     // TODO: handle exception
-    //     }
-            
-    // }
-    
+    /**
+     * Pré-validação: envia um CheckSalaRequest e espera apenas um CheckSalaResponse.
+     */
     public boolean validarSala() {
-        try (Socket socket = new Socket(host, port);
-             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-             PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
+        try(Socket socket = new Socket(host, port);
+            ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
+            ObjectInputStream in = new ObjectInputStream(socket.getInputStream())) {
+            out.flush();
             
-            CheckSalaRequest check = new CheckSalaRequest(pin);
+            CheckSalaRequest req = new CheckSalaRequest(pin);
             // primeira linha é sempre a mensagem de boas-vindas
-            String bemVindo = in.readLine();
-            System.out.println("Servidor: " + bemVindo);
+            out.writeObject(req);
+            out.flush();
 
-            // envia o comando para verificar a sala
-            out.println(check.serialize());
+            Object obj = in.readObject();
+            if(obj instanceof CheckSalaResponse resp){
+                return resp.isOk();
+            }
+            return false;
+            
 
-            // lê a resposta real à verificação
-            String resposta = in.readLine();
-            System.out.println("Servidor: " + resposta);
-            CheckSalaResponse answer = CheckSalaResponse.fromRaw(resposta); 
-
-            return answer.isOk();
-
-        } catch (IOException e) {
+        } catch (EOFException e) {
             System.err.println("❌ Erro ao validar sala: " + e.getMessage());
             return false;
-        }
+        }catch (IOException | ClassNotFoundException e) {
+            System.err.println(" Erro ao ligar ao servidor: " + e.getMessage());
+            return false;
+        } 
     }
-    
-  //Mais prático e resolve o problema do JPanel duplicado mesmo quando 
-    //já existem 2 jogadores na equipa
+
+    /**
+     * Pré-validação: envia TeamStatusRequest (com equipa + nome) e recebe um TeamStatusResponse.
+     */
     public int verificarEstadoEquipa(String nomeEquipa) {
         try (Socket socket = new Socket(host, port);
-             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-             PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
+            ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
+            ObjectInputStream in = new ObjectInputStream(socket.getInputStream())) {
+            out.flush();
 
-            TeamStatusRequest status = new TeamStatusRequest(pin, nomeEquipa);
+            TeamStatusRequest status = new TeamStatusRequest(pin, nomeEquipa, nome);
+            out.writeObject(status);
+            out.flush();
 
-            // Envia comando para verificar equipa usando o protocolo tipado
-            out.println(status.serialize());
-
-            String resposta;
-            while ((resposta = in.readLine()) != null) {
-                System.out.println("Servidor: " + resposta);
-                if (TeamStatusResponse.matches(resposta)){
-                    TeamStatusResponse estado = TeamStatusResponse.fromRaw(resposta);          
-                return estado.getPlayerCount();
-                }
+            System.out.println("Servidor: " + status);
+            Object obj = in.readObject();
+            if (obj instanceof TeamStatusResponse resp){
+                return resp.getPlayerCount();
             }
             return -1;
 
-        } catch (IOException e) {
-            System.err.println("❌ Erro ao verificar equipa: " + e.getMessage());
+        } catch (EOFException e) {
+            System.err.println("❌ Erro ao validar sala: " + e.getMessage());
             return -1;
-        }
+        }catch (IOException | ClassNotFoundException e) {
+            System.err.println(" Erro ao ligar ao servidor: " + e.getMessage());
+            return -1;
+        } 
     }
 
 }

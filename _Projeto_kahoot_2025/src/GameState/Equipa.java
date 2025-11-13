@@ -44,48 +44,12 @@ public class Equipa {
         return this.nome + " - " + this.jogadores.size() + "/2";
     }
     
-    //Não faz sentido o static!!!
-    // public static boolean adicionarJogadorAEquipa(Jogador jogador, String nomeEquipa) {
-    //     Equipa equipa = buscarEquipa(nomeEquipa);
-    //     if (equipa == null) {
-    //         equipa = new Equipa(nomeEquipa);
-    //         todasEquipas.add(equipa);
-    //     }
-    //     return equipa.adicionarJogador(jogador);
-    // }
-
-    // public static Equipa buscarEquipa(String nomeEquipa) {
-    //     for (Equipa e : todasEquipas) {
-    //         if (e.getNome().equalsIgnoreCase(nomeEquipa)) {
-    //             return e;
-    //         }
-    //     }
-    //     return null;
-    // }
-
-    // public static boolean podeIniciarJogo() {
-    //     int equipasCompletas = 0;
-        
-    //     for (Equipa e : todasEquipas) {
-    //         if (e.estaCompleta()) {
-    //             equipasCompletas++;
-    //         }
-    //     }
-    //     return equipasCompletas >= 2;
-    // }
-   
-    // public static List<Equipa> getTodasEquipas() {
-    //     return new ArrayList<>(todasEquipas);
-    // }
-    
-    // public static void limparEquipas() {
-    //     todasEquipas.clear();
-    // }
-
-    
-
-    // @Override
-    // public String toString() {
-    //     return getStatusEquipa();
-    // }
+    public boolean existsPlayer(String nome){
+        for (Jogador jogador : jogadores) {
+            if(jogador.getNome().equals(nome)){
+                return true;
+            }
+        }
+        return false;
+    }
 }

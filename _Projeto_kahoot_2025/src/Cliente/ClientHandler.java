@@ -1,27 +1,24 @@
 package Cliente;
 
-import java.io.BufferedReader;
+/**
+ * Handler do lado servidor para cada cliente conectado.
+ * Apenas gere sockets/streams, delegando a lógica para Servidor.processMsg.
+ */
+
+import java.io.EOFException;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
 import java.net.Socket;
 
-import GameState.Jogador;
-import GameState.Equipa;
-import Protocolos.CheckSalaRequest;
-import Protocolos.CheckSalaResponse;
-import Protocolos.JoinRequest;
-import Protocolos.JoinResponse;
-import Protocolos.TeamStatusRequest;
-import Protocolos.TeamStatusResponse;
-import Servidor.GameState;
 import Servidor.Servidor;
 
 public class ClientHandler implements Runnable {
     
-    private Socket socket;
-    private BufferedReader in;
-    private PrintWriter out;
+    private final Socket socket;
+    private ObjectInputStream in;
+    private ObjectOutputStream out;
     private String pinSala;
     private String nomeJogador;
     private String equipaNome;
@@ -29,159 +26,99 @@ public class ClientHandler implements Runnable {
     public ClientHandler(Socket socket) {
         this.socket = socket;
     }
-    public void enviarMensagem(String mensagem) {
-        if (out != null) {
-            out.println(mensagem);
+    
+    public void run(){
+        try {
+            initializeStreams();
+            Object obj;
+            while(true){
+                obj = in.readObject();
+                Servidor.processMsg(this, obj); // entrega do objeto de protocolo ao servidor
+            }
+        }  catch (EOFException ignored) {
+            // client closed connection
+        } catch (IOException | ClassNotFoundException e) {
+            System.err.println("Erro no handler: " + e.getMessage());
+        } finally {
+            closeStreams();
+        }
+    }
+    
+    private void initializeStreams() throws IOException{
+        out  = new ObjectOutputStream(socket.getOutputStream());
+        out.flush();
+        in = new ObjectInputStream(socket.getInputStream());
+    }
+
+    /**
+     * Envia qualquer objeto de protocolo serializável de volta ao cliente.
+     */
+    public void enviarMensagem(Serializable mensagem) {
+        if (out == null) {
+           return;
+        }
+        try {
+            synchronized(out){ //avoids unexpected interactions with other handler state
+                out.writeObject(mensagem);
+                out.flush();
+            }
+        } catch (IOException e) {
+            System.err.println("Falha ao enviar mensagem para cliente: " + e.getMessage());
         }
     }
 
-    //Doesnt make a lot of sense to handle everything on the run 
-    //seems cluttered, the code is not clean or nice to look at 
-    //and might originate some unexpected errors
-
-    public void run() {
-    	System.out.println("Im a new thread!");
-        try {
-            in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            out = new PrintWriter(socket.getOutputStream(), true);
-
-            out.println("Bem-vindo ao IsKahoot!");
-            // Cada socket fala o protocolo textual; transformamos cada linha no respetivo
-            // objeto (JoinRequest, TeamStatusRequest, etc.) antes de agir sobre o GameState.
-            String msg;
-            while ((msg = in.readLine()) != null) {
-                System.out.println("Mensagem do cliente: " + msg);
-                //I think it should be a separeted method that listens for the messages
-                //and is called by run() 
-                if (JoinRequest.matches(msg)) {
-                    JoinRequest join;
-                    try {
-                        join = JoinRequest.formJoin(msg);
-                    } catch (IllegalArgumentException e) {
-                        out.println(JoinResponse.error("Formato inválido! Usa: JOIN <PIN> <Equipa> <Nome>").serialize());
-                        continue;
-                    }
-                        
-                    this.pinSala = join.getPinSala();
-                    this.nomeJogador = join.getJogadorNome();
-                    this.equipaNome = join.getNomeEquipa();
-
-                    GameState sala = Servidor.getSala(pinSala);
-                    if (sala == null) {
-                        out.println(JoinResponse.error("Sala inexistente!").serialize());
-                        continue;
-                    }
-
-                    synchronized (sala) {
-                    	// 1. Verificar se nome já existe 
-                        if (sala.existeJogador(nomeJogador)) {
-                            out.println(JoinResponse.error("Nome já em uso!").serialize());
-                            continue;
-                        }
-                        
-                        System.out.println("Passou o nome do jogador");
-
-                        // 2. Verificar se equipa está cheia no contexto da sala (sem estado global)
-                        Equipa equipaObj = sala.getEquipa(equipaNome);
-                        if (equipaObj != null && equipaObj.estaCompleta()) {
-                            out.println(JoinResponse.error("Equipa " + equipaNome + " está cheia! (2/2 jogadores)").serialize());
-                            continue;
-                        }
-
-                        System.out.println("A equipa (não) existe e está incompleta");
-                        
-                        // 3. Instanciar o jogador do lado do servidor e registar na equipa da sala
-                        Jogador novoJogador = new Jogador(nomeJogador);
-                        boolean sucesso = sala.addEquipa(equipaNome, novoJogador);
-                        
-                        if (!sucesso) {
-                            out.println(JoinResponse.error("Não foi possível adicionar à equipa!").serialize());
-                            continue;
-                        }
-
-                        Servidor.registarCliente(pinSala, this);
-
-                        out.println(JoinResponse.ok(nomeJogador + " entrou na sala " + pinSala + " da equipa " + equipaNome).serialize());
-                        
-                        // 5. Enviar ao cliente o estado atual da equipa através do novo protocolo
-                        Equipa equipaAtualizada = sala.getEquipa(equipaNome);
-                        if (equipaAtualizada != null) {
-                            TeamStatusResponse estado = equipaAtualizada.estaCompleta()
-                                ? TeamStatusResponse.completa(equipaNome, equipaAtualizada.getNumeroJogadores())
-                                : TeamStatusResponse.incompleta(equipaNome, equipaAtualizada.getNumeroJogadores());
-
-                            System.out.println(nomeJogador + " juntou-se à equipa " + equipaNome + " -> " + estado.serialize());
-                            // Notificamos todos os clientes da mesma sala para que o estado fique visível sem novo clique
-                            Servidor.notificarTodosClientes(pinSala, estado.serialize());
-                        }
-
-                        if (sala.canStart()) {
-                            System.out.println("Jogo pode iniciar!");
-                            Servidor.notificarTodosClientes(pinSala, "JOGO_INICIAR");
-                        }
-                    }
-
-                    continue;
-                }
-                else if (CheckSalaRequest.matches(msg)) {
-                    // Pedido simples para validar o PIN de sala antes de efetuar JOIN
-                    CheckSalaRequest checkSala;
-                    try {
-                        checkSala = CheckSalaRequest.fromRaw(msg);
-                    } catch (IllegalArgumentException e) {
-                        out.println(CheckSalaResponse.error("Formato inválido! Usa: CHECK_SALA <PIN>").serialize());
-                        continue;
-                    }
-
-                    GameState sala = Servidor.getSala(checkSala.getPin());
-                    if (sala != null) {
-                        out.println(CheckSalaResponse.ok("").serialize());
-                    } else {
-                        out.println(CheckSalaResponse.error("Sala não existe").serialize());
-                    }
-                }
-                else if (TeamStatusRequest.matches(msg)) {
-                    // CHECK_EQUIPA agora traduzido por TeamStatusRequest/Response
-                    TeamStatusRequest pedido;
-                    try {
-                        pedido = TeamStatusRequest.fromRaw(msg);
-                    } catch (IllegalArgumentException e) {
-                        out.println(TeamStatusResponse.incompleta("?", 0).serialize());
-                        continue;
-                    }
-
-                    GameState sala = Servidor.getSala(pedido.getPinSala());
-                    if (sala == null) {
-                        out.println("EQUIPA_ERROR Sala não existe");
-                        continue;
-                    }
-
-                    Equipa equipa = sala.getEquipa(pedido.getEquipaNome());
-                    if (equipa == null) {
-                        out.println(TeamStatusResponse.incompleta(pedido.getEquipaNome(), 0).serialize());
-                        continue;
-                    }
-
-                    TeamStatusResponse resposta = equipa.estaCompleta()
-                            ? TeamStatusResponse.completa(equipa.getNome(), equipa.getNumeroJogadores())
-                            : TeamStatusResponse.incompleta(equipa.getNome(), equipa.getNumeroJogadores());
-                    out.println(resposta.serialize());
-                }
-                else if (msg.startsWith("ESTADO_EQUIPAS")) {
-                    GameState sala = pinSala != null ? Servidor.getSala(pinSala) : null;
-                    if (sala == null) {
-                        out.println("ESTADO_ERRO Sala desconhecida");
-                        continue;
-                    }
-                    StringBuilder estado = new StringBuilder();
-                    for (Equipa equipa : sala.listarEquipas()) {
-                        estado.append(equipa.getStatusEquipa()).append(" | ");
-                    }
-                    out.println("ESTADO " + estado.toString());
-                }
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
+    private void closeStreams(){
+        if(out != null){
+            try {
+                out.flush();
+                out.close();
+                
+            } catch (IOException ignored) {}
         }
+        if(in != null){
+            try {
+                in.close();
+            } catch (IOException ignored) {}
+        }
+
+        if(socket != null && !socket.isClosed()){
+            try {
+                socket.close();
+            } catch (IOException ignored) {}
+        }
+    }
+
+//Getters & Setters
+    public Socket getSocket() {
+        return socket;
+    }
+
+    public ObjectInputStream getIn() {
+        return in;
+    }
+
+    public ObjectOutputStream getOut() {
+        return out;
+    }
+
+    public String getPinSala() {
+        return pinSala;
+    }
+
+    public String getNomeJogador() {
+        return nomeJogador;
+    }
+
+    public String getEquipaNome() {
+        return equipaNome;
+    }
+
+    /**
+     * Atualiza o contexto deste handler para o servidor poder associar pin/equipa/jogador.
+     */
+    public void setContext (String pinSala, String nomeJogador, String equipaNome){
+        this.pinSala = pinSala;
+        this.nomeJogador = nomeJogador;
+        this.equipaNome = equipaNome;
     }
 }

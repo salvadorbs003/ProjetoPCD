@@ -1,6 +1,9 @@
 package Protocolos;
 
-public class TeamStatusResponse {
+import java.io.Serializable;
+
+public final class TeamStatusResponse implements Serializable{
+    private static final long serialVersionUID = 1L;
     public enum Status {
         COMPLETA, INCOMPLETA
     }
@@ -9,6 +12,8 @@ public class TeamStatusResponse {
     private final Status status; 
     private final int playercount;
     private static final int MAX_PLAYERS = 2;
+
+    
 
     public TeamStatusResponse(String equipaNome, Status status, int playercount) {
         this.equipaNome = equipaNome;
@@ -27,6 +32,10 @@ public class TeamStatusResponse {
         return playercount;
     }
 
+    public static int getMaxPlayers() {
+        return MAX_PLAYERS;
+    }
+
     public static TeamStatusResponse completa(String equipaNome, int playercount) {
         return new TeamStatusResponse(equipaNome, Status.COMPLETA, playercount);
     }
@@ -36,40 +45,6 @@ public class TeamStatusResponse {
 
     public boolean isCompleta() {
         return status == Status.COMPLETA;
-    }
-
-    public String serialize() {
-        String statusToken = status == Status.COMPLETA ? "EQUIPA_COMPLETA" : "EQUIPA_INCOMPLETA";
-        return statusToken + " " + equipaNome + " " + playercount + "/" + MAX_PLAYERS;
-    }
-
-//Static helpers
-    
-    public static boolean matches(String linha){
-        return linha != null && (linha.startsWith("EQUIPA_INCOMPLETA") || linha.startsWith("EQUIPA_COMPLETA"));
-    }
-
-    //Forms an object of type JoinResponse 
-    public static TeamStatusResponse fromRaw(String linha) {
-        if (!matches(linha)) {
-            throw new IllegalArgumentException("Mensagem não é TeamStatus");
-        }
-
-        boolean completa = linha.startsWith("EQUIPA_COMPLETA");
-        String[] partes = linha.trim().split("\\s+", 3);
-        if (partes.length != 3) {
-            throw new IllegalArgumentException("Formato TeamStatus inválido");
-        }
-
-        String equipaNome = partes[1];
-        String[] contagem = partes[2].split("/");
-        int playerCount = Integer.parseInt(contagem[0]);
-
-        return new TeamStatusResponse(
-            equipaNome,
-            completa ? Status.COMPLETA : Status.INCOMPLETA,
-            playerCount
-        );
     }
 
 }

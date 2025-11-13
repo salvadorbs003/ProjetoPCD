@@ -6,8 +6,14 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 
-import GameState.Equipa;
 import GameState.Jogador;
+import GameState.Equipa;
+import Protocolos.CheckSalaRequest;
+import Protocolos.CheckSalaResponse;
+import Protocolos.JoinRequest;
+import Protocolos.JoinResponse;
+import Protocolos.TeamStatusRequest;
+import Protocolos.TeamStatusResponse;
 import Servidor.GameState;
 import Servidor.Servidor;
 
@@ -18,6 +24,7 @@ public class ClientHandler implements Runnable {
     private PrintWriter out;
     private String pinSala;
     private String nomeJogador;
+    private String equipaNome;
 
     public ClientHandler(Socket socket) {
         this.socket = socket;
@@ -28,131 +35,146 @@ public class ClientHandler implements Runnable {
         }
     }
 
+    //Doesnt make a lot of sense to handle everything on the run 
+    //seems cluttered, the code is not clean or nice to look at 
+    //and might originate some unexpected errors
+
     public void run() {
+    	System.out.println("Im a new thread!");
         try {
             in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             out = new PrintWriter(socket.getOutputStream(), true);
 
             out.println("Bem-vindo ao IsKahoot!");
+            // Cada socket fala o protocolo textual; transformamos cada linha no respetivo
+            // objeto (JoinRequest, TeamStatusRequest, etc.) antes de agir sobre o GameState.
             String msg;
             while ((msg = in.readLine()) != null) {
                 System.out.println("Mensagem do cliente: " + msg);
-                
-                if (msg.startsWith("JOIN")) {
-                    String[] partes = msg.split(" ");
-                    if (partes.length == 4) {
-                        String pin = partes[1];
-                        String equipa = partes[2];
-                        String nome = partes[3];
-                        
-                        this.pinSala = pin;
-                        this.nomeJogador = nome;
-
-                        GameState sala = Servidor.getSala(pin);
-                        if (sala == null) {
-                            out.println("JOIN_ERROR Sala inexistente!");
-                            continue;
-                        }
-
-                        synchronized (sala) {
-                            // 1. Verificar se nome já existe
-                            if (sala.existeJogador(nome)) {
-                                out.println("JOIN_ERROR Nome já em uso!");
-                                continue;
-                            }
-
-                            // 2. Verificar se equipa está cheia
-                            Equipa equipaObj = Equipa.buscarEquipa(equipa);
-                            if (equipaObj != null && equipaObj.estaCompleta()) {
-                                out.println("JOIN_ERROR Equipa " + equipa + " está cheia! (2/2 jogadores)");
-                                continue;
-                            }
-
-                            // 3. Adicionar jogador à equipa
-                            Jogador novoJogador = new Jogador(nome);
-                            boolean sucesso = Equipa.adicionarJogadorAEquipa(novoJogador, equipa);
-                            
-                            if (!sucesso) {
-                                out.println("JOIN_ERROR Não foi possível adicionar à equipa!");
-                                continue;
-                            }
-
-                            // 4. Adicionar também ao GameState (para compatibilidade)
-                            sala.adicionarJogador(novoJogador);
-                            
-                            Servidor.registarCliente(pin, this);
-
-                            out.println("JOIN_OK " + nome + " entrou na sala " + pin + " da equipa " + equipa);
-                            
-                            // 5. Mostrar estado no SERVIDOR
-                            Equipa equipaAtualizada = Equipa.buscarEquipa(equipa);
-                            System.out.println(nome + " juntou-se à equipa " + equipa);
-                            
-                            if (equipaAtualizada.estaIncompleta()) {
-                                System.out.println("Equipa Incompleta - 1/2 jogadores");
-                                out.println("ESTADO_EQUIPA INCOMPLETA"); 
-                                
-                            } else if (equipaAtualizada.estaCompleta()) {
-                                System.out.println("Equipa " + equipa + " completa! 2/2 jogadores");
-                                out.println("ESTADO_EQUIPA COMPLETA");
-                            }
-                            
-                            // 6. Verificar se jogo pode iniciar (2 equipas completas)
-                            if (Equipa.podeIniciarJogo()) {
-                                System.out.println("Jogo pode iniciar!");
-                                Servidor.notificarTodosClientes(pin, "JOGO_INICIAR");                            }
-                        }
-
-                    } else {
-                        out.println("JOIN_ERROR Formato inválido! Usa: JOIN <PIN> <Equipa> <Nome>");
+                //I think it should be a separeted method that listens for the messages
+                //and is called by run() 
+                if (JoinRequest.matches(msg)) {
+                    JoinRequest join;
+                    try {
+                        join = JoinRequest.formJoin(msg);
+                    } catch (IllegalArgumentException e) {
+                        out.println(JoinResponse.error("Formato inválido! Usa: JOIN <PIN> <Equipa> <Nome>").serialize());
+                        continue;
                     }
-                }
-                else if (msg.startsWith("CHECK_SALA")) {
-                    String[] partes = msg.split(" ");
-                    if (partes.length == 2) {
-                        String pin = partes[1];
-                        GameState sala = Servidor.getSala(pin);
-                        if (sala != null) {
-                            out.println("SALA_OK");
-                        } else {
-                            out.println("SALA_ERROR");
-                        }
-                    } else {
-                        out.println("SALA_ERROR");
-                    }
-                }
-                else if (msg.startsWith("CHECK_EQUIPA")) {
-                    String[] partes = msg.split(" ");
-                    if (partes.length == 3) {
-                        String pin = partes[1];
-                        String equipa = partes[2];
                         
-                        GameState sala = Servidor.getSala(pin);
-                        if (sala == null) {
-                            out.println("EQUIPA_ERROR Sala não existe");
+                    this.pinSala = join.getPinSala();
+                    this.nomeJogador = join.getJogadorNome();
+                    this.equipaNome = join.getNomeEquipa();
+
+                    GameState sala = Servidor.getSala(pinSala);
+                    if (sala == null) {
+                        out.println(JoinResponse.error("Sala inexistente!").serialize());
+                        continue;
+                    }
+
+                    synchronized (sala) {
+                    	// 1. Verificar se nome já existe 
+                        if (sala.existeJogador(nomeJogador)) {
+                            out.println(JoinResponse.error("Nome já em uso!").serialize());
                             continue;
                         }
                         
-                        // Verificar se equipa está completa
-                        Equipa equipaObj = Equipa.buscarEquipa(equipa);
-                        if (equipaObj != null) {
-                            if (equipaObj.estaCompleta()) {
-                                out.println("EQUIPA_COMPLETA");
-                                System.out.println("Verificação: Equipa " + equipa + " COMPLETA (2/2)");
-                            } else {
-                                out.println("EQUIPA_INCOMPLETA");
-                                System.out.println("Verificação: Equipa " + equipa + " INCOMPLETA (" + 
-                                                 equipaObj.getNumeroJogadores() + "/2)");
-                            }
-                        } else {
-                            out.println("EQUIPA_INCOMPLETA");
-                            System.out.println("Verificação: Equipa " + equipa + " NÃO EXISTE (0/2)");
+                        System.out.println("Passou o nome do jogador");
+
+                        // 2. Verificar se equipa está cheia no contexto da sala (sem estado global)
+                        Equipa equipaObj = sala.getEquipa(equipaNome);
+                        if (equipaObj != null && equipaObj.estaCompleta()) {
+                            out.println(JoinResponse.error("Equipa " + equipaNome + " está cheia! (2/2 jogadores)").serialize());
+                            continue;
+                        }
+
+                        System.out.println("A equipa (não) existe e está incompleta");
+                        
+                        // 3. Instanciar o jogador do lado do servidor e registar na equipa da sala
+                        Jogador novoJogador = new Jogador(nomeJogador);
+                        boolean sucesso = sala.addEquipa(equipaNome, novoJogador);
+                        
+                        if (!sucesso) {
+                            out.println(JoinResponse.error("Não foi possível adicionar à equipa!").serialize());
+                            continue;
+                        }
+
+                        Servidor.registarCliente(pinSala, this);
+
+                        out.println(JoinResponse.ok(nomeJogador + " entrou na sala " + pinSala + " da equipa " + equipaNome).serialize());
+                        
+                        // 5. Enviar ao cliente o estado atual da equipa através do novo protocolo
+                        Equipa equipaAtualizada = sala.getEquipa(equipaNome);
+                        if (equipaAtualizada != null) {
+                            TeamStatusResponse estado = equipaAtualizada.estaCompleta()
+                                ? TeamStatusResponse.completa(equipaNome, equipaAtualizada.getNumeroJogadores())
+                                : TeamStatusResponse.incompleta(equipaNome, equipaAtualizada.getNumeroJogadores());
+
+                            System.out.println(nomeJogador + " juntou-se à equipa " + equipaNome + " -> " + estado.serialize());
+                            // Notificamos todos os clientes da mesma sala para que o estado fique visível sem novo clique
+                            Servidor.notificarTodosClientes(pinSala, estado.serialize());
+                        }
+
+                        if (sala.canStart()) {
+                            System.out.println("Jogo pode iniciar!");
+                            Servidor.notificarTodosClientes(pinSala, "JOGO_INICIAR");
                         }
                     }
+
+                    continue;
+                }
+                else if (CheckSalaRequest.matches(msg)) {
+                    // Pedido simples para validar o PIN de sala antes de efetuar JOIN
+                    CheckSalaRequest checkSala;
+                    try {
+                        checkSala = CheckSalaRequest.fromRaw(msg);
+                    } catch (IllegalArgumentException e) {
+                        out.println(CheckSalaResponse.error("Formato inválido! Usa: CHECK_SALA <PIN>").serialize());
+                        continue;
+                    }
+
+                    GameState sala = Servidor.getSala(checkSala.getPin());
+                    if (sala != null) {
+                        out.println(CheckSalaResponse.ok("").serialize());
+                    } else {
+                        out.println(CheckSalaResponse.error("Sala não existe").serialize());
+                    }
+                }
+                else if (TeamStatusRequest.matches(msg)) {
+                    // CHECK_EQUIPA agora traduzido por TeamStatusRequest/Response
+                    TeamStatusRequest pedido;
+                    try {
+                        pedido = TeamStatusRequest.fromRaw(msg);
+                    } catch (IllegalArgumentException e) {
+                        out.println(TeamStatusResponse.incompleta("?", 0).serialize());
+                        continue;
+                    }
+
+                    GameState sala = Servidor.getSala(pedido.getPinSala());
+                    if (sala == null) {
+                        out.println("EQUIPA_ERROR Sala não existe");
+                        continue;
+                    }
+
+                    Equipa equipa = sala.getEquipa(pedido.getEquipaNome());
+                    if (equipa == null) {
+                        out.println(TeamStatusResponse.incompleta(pedido.getEquipaNome(), 0).serialize());
+                        continue;
+                    }
+
+                    TeamStatusResponse resposta = equipa.estaCompleta()
+                            ? TeamStatusResponse.completa(equipa.getNome(), equipa.getNumeroJogadores())
+                            : TeamStatusResponse.incompleta(equipa.getNome(), equipa.getNumeroJogadores());
+                    out.println(resposta.serialize());
                 }
                 else if (msg.startsWith("ESTADO_EQUIPAS")) {
+                    GameState sala = pinSala != null ? Servidor.getSala(pinSala) : null;
+                    if (sala == null) {
+                        out.println("ESTADO_ERRO Sala desconhecida");
+                        continue;
+                    }
                     StringBuilder estado = new StringBuilder();
-                    for (Equipa equipa : Equipa.getTodasEquipas()) {
+                    for (Equipa equipa : sala.listarEquipas()) {
                         estado.append(equipa.getStatusEquipa()).append(" | ");
                     }
                     out.println("ESTADO " + estado.toString());

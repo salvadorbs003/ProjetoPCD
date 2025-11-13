@@ -2,8 +2,10 @@ package GUI;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GridLayout;
+import java.util.List;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
@@ -15,6 +17,7 @@ import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 
 import GameState.Lista_Jogadores;
+import Perguntas.Lista_Perguntas;
 
 public class Pergunta_Respostas_Frame {
 
@@ -27,6 +30,11 @@ public class Pergunta_Respostas_Frame {
     private java.util.List<String> opcoes;
     private Pergunta pergunta;
     private int jogadorId;
+    private JPanel painelPontuacoes;
+    int perguntaAtualId;
+    private int indicePergunta;
+
+
 
 
     public Pergunta_Respostas_Frame(int indicePergunta, Pergunta pergunta,  java.util.List<String> opcoes, int tempoRestante) {
@@ -34,6 +42,8 @@ public class Pergunta_Respostas_Frame {
     	this.tempoRestante = tempoRestante;
     	this.opcoes = opcoes;
     	this.jogadorId = Lista_Jogadores.getIdJogadorAtual();
+    	 this.indicePergunta = indicePergunta;
+         this.perguntaAtualId = pergunta.getId();
     	
         frame = new JFrame("Kahoot - Pergunta " + indicePergunta);
         frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
@@ -64,7 +74,7 @@ public class Pergunta_Respostas_Frame {
 
         JPanel p2 = new JPanel(new GridLayout(2, 2, 20, 20));
         p2.setBackground(new Color(45, 25, 120));
-        p2.setBorder(BorderFactory.createEmptyBorder(80, 200, 100, 200));
+        p2.setBorder(BorderFactory.createEmptyBorder(80, 100, 100, 200));
 
         Color[] cores = { new Color(220, 53, 69), new Color(0, 123, 255), new Color(255, 193, 7), new Color(40, 167, 69) };
 
@@ -87,6 +97,9 @@ public class Pergunta_Respostas_Frame {
         frame.add(p1, BorderLayout.NORTH);
         frame.add(p2, BorderLayout.CENTER);
         frame.setVisible(true);
+        
+       PainelPontuacoes();
+
 
         iniciarContagem(); 
     }
@@ -106,7 +119,7 @@ public class Pergunta_Respostas_Frame {
             	 respondeu = true; // evita duplicação
                  SwingUtilities.invokeLater(() -> {
                      JOptionPane.showMessageDialog(frame, "⏰ Tempo esgotado!", "Aviso", JOptionPane.WARNING_MESSAGE);
-                     terminarRonda();
+                     terminarRonda(false,-1);
                  });
                 
             }
@@ -125,36 +138,140 @@ public class Pergunta_Respostas_Frame {
         
         boolean correta = (idx == pergunta.getIndiceCorreto());
         
-        int jogadorId = 0;
         if (correta) {
             pontos = tempoRestante * 10;
             Lista_Jogadores.adicionarPontos(jogadorId, pontos);
-            System.out.println("Resposta Correta! + " + pontos + " pontos.");
+            System.out.println("Resposta Correta! Jogador " + this.jogadorId + " + " + pontos + " pontos.");
         } else {
-            System.out.println("Resposta Errada! 0 pontos.");
+        	System.out.println("Resposta Errada! Jogador " + this.jogadorId + " + 0 pontos.");
         }
-        
-        terminarRonda();
+        atualizarPainelPontuacoes();
+        terminarRonda(correta, idx);
     }
 
-    private void terminarRonda() {
+    private void terminarRonda(boolean respondeu, int respostaEscolhida) {
         respondeu = true;
         if (temporizadorThread != null && temporizadorThread.isAlive()) {
             temporizadorThread.interrupt();
         }
         
-        frame.dispose();
-        String[] nomes = {"Laura", "Salvador", "Maria", "Pedro"};
-        int[] pontos = {150, 120, 90, 60};
-        int destaque = 0;
-        
-        int perguntaAtualId = pergunta.getId(); // <--- precisas guardar esta pergunta como atributo da classe
-        new Pontuacoes_Frame(destaque, perguntaAtualId);
-        
-        //aqui a ronda termina e 
-        //  depois vai passar para a tela de pontuações
+        new Thread(() -> {
+            try {
+                SwingUtilities.invokeLater(() -> {
+                    avancarParaProximaPergunta();
+                    
+                });
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }).start();
     }
+    private void avancarParaProximaPergunta() {
+        List<Pergunta> todasPerguntas = Lista_Perguntas.getPerguntas();
+        
+        if (todasPerguntas == null || todasPerguntas.isEmpty()) {
+            JOptionPane.showMessageDialog(frame, "Erro: Nenhuma pergunta carregada!");
+            return;
+        }
+        
+      
+        int proximoIndice = this.indicePergunta; // Índice atual
+        Pergunta proximaPergunta = null;
+        
+        // Procurar próxima pergunta na lista
+        for (int i = 0; i < todasPerguntas.size(); i++) {
+            if (todasPerguntas.get(i).getId() == this.perguntaAtualId + 1) {
+                proximaPergunta = todasPerguntas.get(i);
+                proximoIndice = i + 1; // Índice para display
+                break;
+            }
+        }
+        
+        if (proximaPergunta != null) {
+            frame.dispose();
+            new Pergunta_Respostas_Frame(
+                proximoIndice,
+                proximaPergunta,
+                proximaPergunta.getOpcoes(),
+                proximaPergunta.getTempo()
+            );
+        } else {
 
+            frame.dispose();
+            new Classificacao_Final_Frame(0, "Quiz Final");
+        }
+    }
+    
+    
+    private void PainelPontuacoes() {
+        painelPontuacoes = new JPanel();
+        painelPontuacoes.setLayout(new BorderLayout());
+        painelPontuacoes.setBackground(new Color(60, 40, 140));
+        painelPontuacoes.setPreferredSize(new Dimension(300, 0));
+        painelPontuacoes.setBorder(BorderFactory.createEmptyBorder(20, 10, 20, 10));
+        
+        JLabel titulo = new JLabel("🏆 PONTUAÇÕES", SwingConstants.CENTER);
+        titulo.setForeground(Color.WHITE);
+        titulo.setFont(new Font("Arial", Font.BOLD, 20));
+        painelPontuacoes.add(titulo, BorderLayout.NORTH);
+        
+        // Conteúdo das pontuações (reutiliza a lógica do Pontuacoes_Frame)
+        JPanel listaPontuacoes = criarListaPontuacoes();
+        painelPontuacoes.add(listaPontuacoes, BorderLayout.CENTER);
+        
+        // Adicionar ao frame principal no lado DIREITO
+        frame.add(painelPontuacoes, BorderLayout.EAST);
+    }
+    
+    private JPanel criarListaPontuacoes() {
+        String[] nomes = Lista_Jogadores.getNomes();
+        int[] pontos = Lista_Jogadores.getPontuacoes();
+        
+        JPanel painel = new JPanel();
+        painel.setLayout(new GridLayout(nomes.length, 1, 5, 5));
+        painel.setBackground(new Color(60, 40, 140));
+        
+        for (int i = 0; i < nomes.length; i++) {
+            JPanel linha = new JPanel(new BorderLayout());
+            linha.setBackground(new Color(80, 60, 160));
+            linha.setBorder(BorderFactory.createEmptyBorder(10, 15, 10, 15));
+            
+            JLabel nome = new JLabel((i + 1) + ". " + nomes[i]);
+            nome.setFont(new Font("Arial", Font.BOLD, 14));
+            nome.setForeground(Color.WHITE);
+            
+            JLabel pontosLabel = new JLabel(pontos[i] + " pts");
+            pontosLabel.setFont(new Font("Arial", Font.BOLD, 14));
+            pontosLabel.setForeground(Color.YELLOW);
+            
+            linha.add(nome, BorderLayout.WEST);
+            linha.add(pontosLabel, BorderLayout.EAST);
+            
+            painel.add(linha);
+        }
+        
+        return painel;
+    }
+    private void atualizarPainelPontuacoes() {
+        painelPontuacoes.removeAll();
+        
+        // Título
+        JLabel titulo = new JLabel("🏆 PONTUAÇÕES", SwingConstants.CENTER);
+        titulo.setForeground(Color.WHITE);
+        titulo.setFont(new Font("Arial", Font.BOLD, 20));
+        painelPontuacoes.add(titulo, BorderLayout.NORTH);
+        
+        // Conteúdo atualizado das pontuações
+        JPanel listaPontuacoes = criarListaPontuacoes();
+        painelPontuacoes.add(listaPontuacoes, BorderLayout.CENTER);
+        
+        painelPontuacoes.revalidate();
+        painelPontuacoes.repaint();
+    }
+    
+
+}
    
     
-}
+

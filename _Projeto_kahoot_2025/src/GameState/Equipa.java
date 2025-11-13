@@ -5,7 +5,7 @@ import java.util.List;
 
 public class Equipa {
 
-    private static List<Equipa> todasEquipas = new ArrayList<>();
+    //private static List<Equipa> todasEquipas = new ArrayList<>();
 
     private String nome;
     private List<Jogador> jogadores;
@@ -24,7 +24,7 @@ public class Equipa {
     }
 
     public boolean adicionarJogador(Jogador jogador) {
-        if (jogadores.size() < 2) {
+        if (!estaCompleta()) {
             jogadores.add(jogador);
             jogador.setEquipa(this.nome); 
             return true;
@@ -36,57 +36,56 @@ public class Equipa {
         return jogadores.size() == 2;
     }
 
-    public boolean estaIncompleta() {
-        return this.jogadores.size() == 1;
-    }
-
     public int getNumeroJogadores() {
         return jogadores.size();
-    }
-    
-    public static boolean adicionarJogadorAEquipa(Jogador jogador, String nomeEquipa) {
-        Equipa equipa = buscarEquipa(nomeEquipa);
-        if (equipa == null) {
-            equipa = new Equipa(nomeEquipa);
-            todasEquipas.add(equipa);
-        }
-        return equipa.adicionarJogador(jogador);
-    }
-
-    public static Equipa buscarEquipa(String nomeEquipa) {
-        for (Equipa e : todasEquipas) {
-            if (e.getNome().equalsIgnoreCase(nomeEquipa)) {
-                return e;
-            }
-        }
-        return null;
-    }
-
-    public static boolean podeIniciarJogo() {
-        int equipasCompletas = 0;
-        
-        for (Equipa e : todasEquipas) {
-            if (e.estaCompleta()) {
-                equipasCompletas++;
-            }
-        }
-        return equipasCompletas >= 2;
-    }
-   
-    public static List<Equipa> getTodasEquipas() {
-        return new ArrayList<>(todasEquipas);
-    }
-    
-    public static void limparEquipas() {
-        todasEquipas.clear();
     }
 
     public String getStatusEquipa() {
         return this.nome + " - " + this.jogadores.size() + "/2";
     }
+    
+    //Não faz sentido o static!!!
+    // public static boolean adicionarJogadorAEquipa(Jogador jogador, String nomeEquipa) {
+    //     Equipa equipa = buscarEquipa(nomeEquipa);
+    //     if (equipa == null) {
+    //         equipa = new Equipa(nomeEquipa);
+    //         todasEquipas.add(equipa);
+    //     }
+    //     return equipa.adicionarJogador(jogador);
+    // }
 
-    @Override
-    public String toString() {
-        return getStatusEquipa();
-    }
+    // public static Equipa buscarEquipa(String nomeEquipa) {
+    //     for (Equipa e : todasEquipas) {
+    //         if (e.getNome().equalsIgnoreCase(nomeEquipa)) {
+    //             return e;
+    //         }
+    //     }
+    //     return null;
+    // }
+
+    // public static boolean podeIniciarJogo() {
+    //     int equipasCompletas = 0;
+        
+    //     for (Equipa e : todasEquipas) {
+    //         if (e.estaCompleta()) {
+    //             equipasCompletas++;
+    //         }
+    //     }
+    //     return equipasCompletas >= 2;
+    // }
+   
+    // public static List<Equipa> getTodasEquipas() {
+    //     return new ArrayList<>(todasEquipas);
+    // }
+    
+    // public static void limparEquipas() {
+    //     todasEquipas.clear();
+    // }
+
+    
+
+    // @Override
+    // public String toString() {
+    //     return getStatusEquipa();
+    // }
 }

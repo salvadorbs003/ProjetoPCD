@@ -13,15 +13,11 @@ public class GameState {
 	
 	private String codigoPIN;
     private final HashMap<String, Equipa> teams = new HashMap<>();
-    private List<Jogador> jogadores = new ArrayList<>(); 
     private List<Pergunta> perguntas;
 
     public GameState(String pin, List<Pergunta> perguntas) {
         this.codigoPIN = pin;
         this.perguntas = perguntas;
-    }
-    public synchronized void adicionarJogador(Jogador j) {
-        jogadores.add(j);
     }
 
     
@@ -61,4 +57,18 @@ public class GameState {
         
         return equipasCompletas >= 2; // 2 equipas completas
     }
+
+    public synchronized Equipa getEquipa(String nome){
+        return teams.get(nome);
+    }
+
+    public synchronized void limpar() {
+        teams.clear(); // removes every entry from the map
+    }
+
+    // Retorna uma cópia das equipas da sala para que os handlers possam apresentar estado
+    public synchronized List<Equipa> listarEquipas() {
+        return new ArrayList<>(teams.values());
+    }
+     
 }

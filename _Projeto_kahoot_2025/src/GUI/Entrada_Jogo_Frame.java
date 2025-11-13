@@ -76,7 +76,14 @@ public class Entrada_Jogo_Frame {
                     Pergunta primeiraPergunta = todas.get(0);
                     int idPrimeira = primeiraPergunta.getId();
 
-                    new Perguntas_Frame(primeiraPergunta, idPrimeira);
+                    SwingUtilities.invokeLater(() -> {
+                        new Pergunta_Respostas_Frame(
+                            1, // índice da pergunta (primeira pergunta)
+                            primeiraPergunta, // objeto Pergunta
+                            primeiraPergunta.getOpcoes(), // lista de opções
+                            primeiraPergunta.getTempo() // tempo para responder
+                        );
+                    });
                 }
             }
         });

@@ -1,15 +1,12 @@
 package GUI;
 
-import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
-import java.awt.GridBagLayout;
 import java.awt.GridLayout;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Timer;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
@@ -25,6 +22,7 @@ import GameState.Jogador;
 import GameState.Lista_Jogadores;
 import GameState.QuizLoader;
 import Perguntas.Lista_Perguntas;
+import Quizz.Quiz; // Added to work with new QuizLoader signature
 
 public class Nomes_EntrarJogo_Frame {
 
@@ -143,64 +141,73 @@ public class Nomes_EntrarJogo_Frame {
         }
         int estadoEquipa = cliente.verificarEstadoEquipa(equipa);
         System.out.println(estadoEquipa);
-        
-        if (estadoEquipa == 0) {
-        	 int resposta = JOptionPane.showConfirmDialog(frame, 
-                     "Ligado com sucesso à sala!\n\n" +
-                     "Equipa incompleta, falta 1 membro!\n" +
-                     "  - Equipa: " + equipa + "\n" +
-                     "  - Estado: 1/2 jogadores\n\n" +
-                     "À espera que outro jogador se junte...",
-                     "Estado da Equipa",
-                     JOptionPane.YES_NO_OPTION);
 
-                 if (resposta == JOptionPane.YES_OPTION) {
-                     new Thread(() -> {
-                         boolean jogoIniciou = cliente.ligar();
-                         if (jogoIniciou) {
-                             SwingUtilities.invokeLater(() -> {
-                                 JOptionPane.showMessageDialog(frame, 
-                                     " Todas as equipas prontas! A iniciar jogo...");
-                                 iniciarJogo(nome, equipa);
-                                 frame.dispose();
-                             });
-                         }
-                     }).start();
-                 } else {
-                     frame.dispose();
-                 }
 
-        } else if (estadoEquipa==1) {
-        	JOptionPane.showMessageDialog(frame,
-                " Ligado com sucesso!\n\n" +
-                "Equipa completa! 2/2 jogadores\n" +
-                "À espera que a 2ª equipa fique completa...");
-
-            // Em vez de consultar estado global, aguardamos pela notificação JOGO_INICIAR do servidor
-            // através do mesmo fluxo usado para equipas incompletas.
-            new Thread(() -> {
-                boolean jogoIniciou = cliente.ligar();
-                if (jogoIniciou) {
-                    SwingUtilities.invokeLater(() -> {
-                        JOptionPane.showMessageDialog(frame, 
-                            " Todas as equipas prontas! A iniciar jogo...");
-                        iniciarJogo(nome, equipa);
-                        frame.dispose();
-                    });
-                }
-            }).start();
-        } else if (estadoEquipa > 1) {
-            JOptionPane.showMessageDialog(frame,
-                "Esta equipa já se encontra completa",
-                "Erro",
-                JOptionPane.ERROR_MESSAGE);
-            return;
+        if(cliente.verificarJogador(nome, pin)){
+            if (estadoEquipa == 0) {
+                 int resposta = JOptionPane.showConfirmDialog(frame, 
+                         "Ligado com sucesso à sala!\n\n" +
+                         "Equipa incompleta, falta 1 membro!\n" +
+                         "  - Equipa: " + equipa + "\n" +
+                         "  - Estado: 1/2 jogadores\n\n" +
+                         "À espera que outro jogador se junte...",
+                         "Estado da Equipa",
+                         JOptionPane.YES_NO_OPTION);
+    
+                     if (resposta == JOptionPane.YES_OPTION) {
+                         new Thread(() -> {
+                             boolean jogoIniciou = cliente.ligar();
+                             if (jogoIniciou) {
+                                 SwingUtilities.invokeLater(() -> {
+                                     JOptionPane.showMessageDialog(frame, 
+                                         " Todas as equipas prontas! A iniciar jogo...");
+                                     iniciarJogo(nome, equipa);
+                                     frame.dispose();
+                                 });
+                             }
+                         }).start();
+                     } else {
+                         frame.dispose();
+                     }
+    
+            } else if (estadoEquipa==1) {
+                JOptionPane.showMessageDialog(frame,
+                    " Ligado com sucesso!\n\n" +
+                    "Equipa completa! 2/2 jogadores\n" +
+                    "À espera que a 2ª equipa fique completa...");
+    
+                // Em vez de consultar estado global, aguardamos pela notificação JOGO_INICIAR do servidor
+                // através do mesmo fluxo usado para equipas incompletas.
+                new Thread(() -> {
+                    boolean jogoIniciou = cliente.ligar();
+                    if (jogoIniciou) {
+                        SwingUtilities.invokeLater(() -> {
+                            JOptionPane.showMessageDialog(frame, 
+                                " Todas as equipas prontas! A iniciar jogo...");
+                            iniciarJogo(nome, equipa);
+                            frame.dispose();
+                        });
+                    }
+                }).start();
+            } else if (estadoEquipa > 1) {
+                JOptionPane.showMessageDialog(frame,
+                    "Esta equipa já se encontra completa",
+                    "Erro",
+                    JOptionPane.ERROR_MESSAGE);
+                return;
+            } else {
+                JOptionPane.showMessageDialog(frame,
+                    "Não foi possível obter o estado da equipa. Tenta novamente.",
+                    "Erro",
+                    JOptionPane.ERROR_MESSAGE);
+                return;
+            }
         } else {
             JOptionPane.showMessageDialog(frame,
-                "Não foi possível obter o estado da equipa. Tenta novamente.",
-                "Erro",
-                JOptionPane.ERROR_MESSAGE);
-            return;
+                    "Já existe um jogador no lobby com o nome: " + nome,
+                    "Erro",
+                    JOptionPane.ERROR_MESSAGE);
+                return;
         }
     }
         		    
@@ -209,8 +216,15 @@ public class Nomes_EntrarJogo_Frame {
             Lista_Jogadores.adicionarJogador(jogador);
             Lista_Jogadores.definirJogadorAtual(jogador);
 
-            java.util.List<Pergunta> perguntas = QuizLoader.load("src/lista_perguntas.json");
-            Lista_Perguntas.definirPerguntas(perguntas);
+            Quiz quiz = QuizLoader.load(0); // QuizLoader now devolve um Quiz específico (comentário esclarece alteração)
+            if (quiz == null || quiz.getPerguntas() == null) {
+                JOptionPane.showMessageDialog(frame,
+                    "Não foi possível carregar o quiz selecionado.",
+                    "Erro",
+                    JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+            Lista_Perguntas.definirPerguntas(quiz.getPerguntas());
             
             frame.dispose();
             new Entrada_Jogo_Frame();

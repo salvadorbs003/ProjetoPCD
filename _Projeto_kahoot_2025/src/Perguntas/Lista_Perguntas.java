@@ -3,7 +3,7 @@ package Perguntas;
 import java.util.ArrayList;
 import java.util.List;
 
-import GUI.Pergunta;
+import Quizz.Pergunta;
 
 public class Lista_Perguntas {
 

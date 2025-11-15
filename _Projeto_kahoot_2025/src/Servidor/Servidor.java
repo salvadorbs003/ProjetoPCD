@@ -1,18 +1,33 @@
 package Servidor;
 
-import GameState.Equipa;
-import GameState.Jogador;
-import Servidor.GameState;
-import GameState.QuizLoader;
-import Cliente.ClientHandler;
-import GUI.Pergunta;
-import Protocolos.*;
-
 import java.io.IOException;
 import java.io.Serializable;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.Scanner;
+
+import Cliente.ClientHandler;
+import GameState.Equipa;
+import GameState.Jogador;
+import GameState.QuizLoader;
+import Protocolos.CheckPlayerRequest;
+import Protocolos.CheckPlayerResponse;
+import Protocolos.CheckSalaRequest;
+import Protocolos.CheckSalaResponse;
+import Protocolos.GameStartNotification;
+import Protocolos.JoinRequest;
+import Protocolos.JoinResponse;
+import Protocolos.LobbyStateRequest;
+import Protocolos.LobbyStateResponse;
+import Protocolos.TeamStatusRequest;
+import Protocolos.TeamStatusResponse;
+import Quizz.Quiz;
 
 public class Servidor {
     
@@ -37,6 +52,7 @@ public class Servidor {
                         case "2" -> listarSalas();
                         case "3" -> {
                             System.out.println("Encerrando servidor...");
+                            sc.close();
                             System.exit(0);
                         }
                         default -> System.out.println("Comando inválido!");
@@ -57,8 +73,13 @@ public class Servidor {
     
     private static synchronized void criarSala() {
         String pin = gerarPIN();
-        List<Pergunta> perguntas = QuizLoader.load("src/lista_perguntas.json");
-        GameState novaSala = new GameState(pin, perguntas);
+        Quiz quizz = QuizLoader.load(0);
+        if (quizz == null || quizz.getPerguntas() == null || quizz.getPerguntas().isEmpty()) {
+            System.err.println("Falha ao criar sala: quiz não disponível.");
+            return;
+        }
+        System.out.println(quizz.getPerguntas());
+        GameState novaSala = new GameState(pin, quizz.getPerguntas());
         salas.put(pin, novaSala);
         clientesPorSala.put(pin, new ArrayList<>());
         System.out.println("Nova sala criada com PIN: " + pin);
@@ -132,6 +153,7 @@ public class Servidor {
     }
     
     public static void processMsg(ClientHandler handler, Object obj) {
+        System.out.println("Im on processMsg method!");
         try {
             if (obj instanceof JoinRequest join) {
                 processarJoin(handler, join);
@@ -141,6 +163,8 @@ public class Servidor {
                 handler.enviarMensagem(processarTeamStatus(req));
             } else if (obj instanceof LobbyStateRequest lobbyReq) {
                 handler.enviarMensagem(processarLobbyState(lobbyReq, handler));
+            }  else if (obj instanceof CheckPlayerRequest req) {
+                handler.enviarMensagem(processarCheckPlayer(req));
             } else {
                 System.err.println("Mensagem desconhecida: " + obj.getClass().getSimpleName());
                 handler.enviarMensagem(new ErrorResponse("Protocolo não suportado"));
@@ -157,6 +181,7 @@ public class Servidor {
     }
     
     public static CheckSalaResponse processarCheckSala(CheckSalaRequest request) {
+        System.out.println("Im on processarCheckSala method!");
         GameState sala = getSala(request.getPin());
         if (sala != null) {
             return CheckSalaResponse.ok("Sala " + request.getPin() + " existe e está ativa.");
@@ -166,6 +191,7 @@ public class Servidor {
     }
     
     public static void processarJoin(ClientHandler handler, JoinRequest join) {
+        System.out.println("Im on processarJoin method!");
         GameState sala = getSala(join.getPinSala());
         if (sala == null) {
             handler.enviarMensagem(JoinResponse.error("Sala inexistente!"));
@@ -221,6 +247,7 @@ public class Servidor {
     }
     
     public static TeamStatusResponse processarTeamStatus(TeamStatusRequest req) {
+        System.out.println("Im on processarTeamStatus method!");
         GameState game = getSala(req.getPinSala());
         if (game == null) {
             return TeamStatusResponse.incompleta(req.getEquipaNome(), 0);
@@ -237,6 +264,7 @@ public class Servidor {
     }
     
     public static LobbyStateResponse processarLobbyState(LobbyStateRequest lobbyReq, ClientHandler handler) {
+        System.out.println("Im on processarLobbyState method!");
         String pin = handler.getPinSala();
         GameState sala = getSala(pin);
         if (sala == null) {
@@ -244,6 +272,19 @@ public class Servidor {
         }
         synchronized (sala) {
             return new LobbyStateResponse();
+        }
+    }
+
+    public static CheckPlayerResponse processarCheckPlayer(CheckPlayerRequest req){
+        System.out.println("Im on processarCheckPlayer method!");
+         GameState sala = getSala(req.getPin());
+        if (sala == null) {
+            return CheckPlayerResponse.error("Sala não existe");
+        }
+        synchronized (sala) {
+            return sala.existeJogador(req.getNamePlayer())
+                ? CheckPlayerResponse.error("Jogador existe")
+                : CheckPlayerResponse.ok("Jogador não existe");
         }
     }
     

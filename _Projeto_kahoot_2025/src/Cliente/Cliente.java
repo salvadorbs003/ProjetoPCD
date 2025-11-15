@@ -14,6 +14,8 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 
+import Protocolos.CheckPlayerRequest;
+import Protocolos.CheckPlayerResponse;
 import Protocolos.CheckSalaRequest;
 import Protocolos.CheckSalaResponse;
 import Protocolos.GameStartNotification;
@@ -48,6 +50,7 @@ public class Cliente {
      * erro (false) ou sinal para arrancar o jogo (true).
      */
     public boolean ligar() {
+        System.out.println("Im trying to connect to the server!");
         try(Socket socket = new Socket(host, port);
             ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
             ObjectInputStream in = new ObjectInputStream(socket.getInputStream())) {
@@ -86,6 +89,7 @@ public class Cliente {
      * Pré-validação: envia um CheckSalaRequest e espera apenas um CheckSalaResponse.
      */
     public boolean validarSala() {
+        System.out.println("Im validating the room");
         try(Socket socket = new Socket(host, port);
             ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
             ObjectInputStream in = new ObjectInputStream(socket.getInputStream())) {
@@ -116,6 +120,7 @@ public class Cliente {
      * Pré-validação: envia TeamStatusRequest (com equipa + nome) e recebe um TeamStatusResponse.
      */
     public int verificarEstadoEquipa(String nomeEquipa) {
+        System.out.println("Im validanting the teamStatus");
         try (Socket socket = new Socket(host, port);
             ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
             ObjectInputStream in = new ObjectInputStream(socket.getInputStream())) {
@@ -139,6 +144,28 @@ public class Cliente {
             System.err.println(" Erro ao ligar ao servidor: " + e.getMessage());
             return -1;
         } 
+    }
+
+    public boolean verificarJogador(String jogadorNome, String pin){
+        try (Socket socket = new Socket(host, port);
+            ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
+            ObjectInputStream in = new ObjectInputStream(socket.getInputStream())){
+            out.flush();
+
+            CheckPlayerRequest exists = new CheckPlayerRequest(jogadorNome, pin);
+            out.writeObject(exists);
+            out.flush();
+
+            System.out.println("Servidor: " + exists);
+            Object obj = in.readObject();
+            if(obj instanceof CheckPlayerResponse resp){
+                System.out.println(resp.isOk());
+                return resp.isOk();
+            }
+            return false;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
 }

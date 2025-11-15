@@ -1,8 +1,5 @@
 package Cliente;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import GUI.Codigo_PINInicial_Frame;
 
 public class MainCliente {

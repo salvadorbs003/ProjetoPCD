@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-import GUI.Pergunta;
+import Quizz.Pergunta;
 import GameState.Equipa;
 import GameState.Jogador;
 

@@ -2,7 +2,7 @@ package Protocolos;
 
 import java.io.Serializable;
 
-public final class CheckSalaResponse implements Serializable{
+public final class CheckSalaResponse extends Mensagem{
     private static final long serialVersionUID = 1L;
 
     public enum Status{

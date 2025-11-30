@@ -18,7 +18,7 @@ import javax.swing.SwingUtilities;
 
 import GameState.Lista_Jogadores;
 import Perguntas.Lista_Perguntas;
-import Quizz.Pergunta; // ensure we use the new Pergunta model
+import Quizz.Pergunta;
 
 public class Pergunta_Respostas_Frame {
 

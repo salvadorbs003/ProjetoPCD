@@ -50,7 +50,8 @@ public class Cliente {
      * erro (false) ou sinal para arrancar o jogo (true).
      */
     public boolean ligar() {
-        System.out.println("Im trying to connect to the server!");
+    	
+    	System.out.println("Im trying to connect to the server!");
         try(Socket socket = new Socket(host, port);
             ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
             ObjectInputStream in = new ObjectInputStream(socket.getInputStream())) {
@@ -89,7 +90,8 @@ public class Cliente {
      * Pré-validação: envia um CheckSalaRequest e espera apenas um CheckSalaResponse.
      */
     public boolean validarSala() {
-        System.out.println("Im validating the room");
+    	
+    	System.out.println("Im validating the room");
         try(Socket socket = new Socket(host, port);
             ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
             ObjectInputStream in = new ObjectInputStream(socket.getInputStream())) {
@@ -120,7 +122,8 @@ public class Cliente {
      * Pré-validação: envia TeamStatusRequest (com equipa + nome) e recebe um TeamStatusResponse.
      */
     public int verificarEstadoEquipa(String nomeEquipa) {
-        System.out.println("Im validanting the teamStatus");
+    	
+    	System.out.println("Im validanting the teamStatus");
         try (Socket socket = new Socket(host, port);
             ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
             ObjectInputStream in = new ObjectInputStream(socket.getInputStream())) {
@@ -167,5 +170,4 @@ public class Cliente {
             return false;
         }
     }
-
 }

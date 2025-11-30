@@ -1,21 +1,20 @@
 package Protocolos;
 
-import java.io.Serializable;
-
-public final class JoinResponse implements Serializable{
+public final class JoinResponse extends Mensagem {
     private static final long serialVersionUID = 1L;
-    
-    public enum Status{
+
+    public enum Status {
         OK, ERROR
     }
 
     private final Status status;
     private final String msg;
-    
+
     public JoinResponse(Status status, String msg) {
         this.status = status;
         this.msg = msg;
     }
+
     public Status getStatus() {
         return status;
     }
@@ -23,7 +22,6 @@ public final class JoinResponse implements Serializable{
     public String getMsg() {
         return msg;
     }
-
 
     public static JoinResponse ok(String msg) {
         return new JoinResponse(Status.OK, msg);
@@ -37,13 +35,11 @@ public final class JoinResponse implements Serializable{
         return status == Status.OK;
     }
 
-//ToString method
     @Override
     public String toString() {
         return "JoinResponse{" +
                 "estado='" + status + '\'' +
-                ", mesnagem='" + msg + '\'' +
+                ", mensagem='" + msg + '\'' +
                 '}';
     }
-    
 }

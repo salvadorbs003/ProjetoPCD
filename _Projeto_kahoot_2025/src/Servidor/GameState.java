@@ -5,9 +5,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-import Quizz.Pergunta;
 import GameState.Equipa;
 import GameState.Jogador;
+import Quizz.Pergunta;
 
 public class GameState {
 	

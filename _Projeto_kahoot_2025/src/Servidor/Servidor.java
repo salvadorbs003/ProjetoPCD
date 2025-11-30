@@ -1,9 +1,12 @@
 package Servidor;
 
+
 import java.io.IOException;
 import java.io.Serializable;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.*;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -25,9 +28,12 @@ import Protocolos.JoinRequest;
 import Protocolos.JoinResponse;
 import Protocolos.LobbyStateRequest;
 import Protocolos.LobbyStateResponse;
+import Protocolos.Mensagem;
 import Protocolos.TeamStatusRequest;
 import Protocolos.TeamStatusResponse;
 import Quizz.Quiz;
+import Protocolos.MensagemChat;
+
 
 public class Servidor {
     
@@ -131,7 +137,7 @@ public class Servidor {
         }
     }
     
-    public static synchronized void notificarTodosClientes(String pin, Serializable mensagem) {
+    public static synchronized void notificarTodosClientes(String pin, Mensagem mensagem) {
         List<ClientHandler> clientes = clientesPorSala.get(pin);
         if (clientes == null || clientes.isEmpty()) {
             return;
@@ -152,36 +158,35 @@ public class Servidor {
             + " enviada para " + enviados + " clientes na sala " + pin);
     }
     
-    public static void processMsg(ClientHandler handler, Object obj) {
-        System.out.println("Im on processMsg method!");
+    public static void processMsg(ClientHandler handler, Mensagem msg) {
         try {
-            if (obj instanceof JoinRequest join) {
-                processarJoin(handler, join);
-            } else if (obj instanceof CheckSalaRequest check) {
-                handler.enviarMensagem(processarCheckSala(check));
-            } else if (obj instanceof TeamStatusRequest req) {
+            if (msg instanceof JoinRequest req) {
+                processarJoin(handler, req);
+
+            } else if (msg instanceof CheckSalaRequest req) {
+                handler.enviarMensagem(processarCheckSala(req));
+
+            } else if (msg instanceof TeamStatusRequest req) {
                 handler.enviarMensagem(processarTeamStatus(req));
-            } else if (obj instanceof LobbyStateRequest lobbyReq) {
-                handler.enviarMensagem(processarLobbyState(lobbyReq, handler));
-            }  else if (obj instanceof CheckPlayerRequest req) {
+
+            } else if (msg instanceof MensagemChat chat) {
+                notificarTodosClientes(handler.getPinSala(), chat);
+
+            } else if (msg instanceof CheckPlayerRequest req) {
                 handler.enviarMensagem(processarCheckPlayer(req));
+
             } else {
-                System.err.println("Mensagem desconhecida: " + obj.getClass().getSimpleName());
-                handler.enviarMensagem(new ErrorResponse("Protocolo não suportado"));
+                handler.enviarMensagem(new ErrorResponse("Mensagem não reconhecida"));
             }
+
         } catch (Exception e) {
-            System.err.println("Erro a processar mensagem: " + e.getMessage());
-            e.printStackTrace();
-            try {
-                handler.enviarMensagem(new ErrorResponse("Erro interno do servidor"));
-            } catch (Exception ex) {
-                System.err.println("Falha ao enviar mensagem de erro: " + ex.getMessage());
-            }
+            handler.enviarMensagem(new ErrorResponse("Erro interno do servidor"));
         }
     }
+
     
     public static CheckSalaResponse processarCheckSala(CheckSalaRequest request) {
-        System.out.println("Im on processarCheckSala method!");
+    	 System.out.println("Im on processarCheckSala method!");
         GameState sala = getSala(request.getPin());
         if (sala != null) {
             return CheckSalaResponse.ok("Sala " + request.getPin() + " existe e está ativa.");
@@ -192,6 +197,7 @@ public class Servidor {
     
     public static void processarJoin(ClientHandler handler, JoinRequest join) {
         System.out.println("Im on processarJoin method!");
+
         GameState sala = getSala(join.getPinSala());
         if (sala == null) {
             handler.enviarMensagem(JoinResponse.error("Sala inexistente!"));
@@ -246,8 +252,9 @@ public class Servidor {
         }
     }
     
-    public static TeamStatusResponse processarTeamStatus(TeamStatusRequest req) {
-        System.out.println("Im on processarTeamStatus method!");
+    public static TeamStatusResponse processarTeamStatus(TeamStatusRequest req) {       
+    	System.out.println("Im on processarTeamStatus method!");
+    	
         GameState game = getSala(req.getPinSala());
         if (game == null) {
             return TeamStatusResponse.incompleta(req.getEquipaNome(), 0);
@@ -265,6 +272,7 @@ public class Servidor {
     
     public static LobbyStateResponse processarLobbyState(LobbyStateRequest lobbyReq, ClientHandler handler) {
         System.out.println("Im on processarLobbyState method!");
+
         String pin = handler.getPinSala();
         GameState sala = getSala(pin);
         if (sala == null) {
@@ -274,7 +282,7 @@ public class Servidor {
             return new LobbyStateResponse();
         }
     }
-
+    
     public static CheckPlayerResponse processarCheckPlayer(CheckPlayerRequest req){
         System.out.println("Im on processarCheckPlayer method!");
          GameState sala = getSala(req.getPin());
@@ -288,14 +296,11 @@ public class Servidor {
         }
     }
     
-    private static class ErrorResponse implements Serializable {
+    private static class ErrorResponse extends Mensagem {
         private static final long serialVersionUID = 1L;
         private final String error;
-        public ErrorResponse(String error) {
-            this.error = error;
-        }
-        public String getError() {
-            return error;
-        }
+        public ErrorResponse(String error) { this.error = error; }
+        public String getError() { return error; }
     }
+
 }

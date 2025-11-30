@@ -63,41 +63,41 @@ public class Entrada_Jogo_Frame {
             return;
         }
 
-        //startContagem();
+       // startContagem();
     }
 
-    // private void startContagem() {
-    //     labelContagem.setText(contagem + "!");
-    //     timer = new Timer(1000, new ActionListener() {
-    //         public void actionPerformed(ActionEvent e) {
-    //             contagem--;
-    //             if (contagem > 0) {
-    //                 labelContagem.setText(contagem + "!");
-    //             } else {
-    //                 timer.stop();
-    //                 frame.dispose();
+   /* private void startContagem() {
+        labelContagem.setText(contagem + "!");
+        timer = new Timer(1000, new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                contagem--;
+                if (contagem > 0) {
+                    labelContagem.setText(contagem + "!");
+                } else {
+                    timer.stop();
+                    frame.dispose();
 
-    //                 // agora pegamos da lista global com IDs corretos
-    //                 List<Pergunta> todas = Lista_Perguntas.getPerguntas();
-    //                 if (todas == null || todas.isEmpty()) {
-    //                     JOptionPane.showMessageDialog(frame, "Nenhuma pergunta carregada!");
-    //                     return;
-    //                 }
+                    // agora pegamos da lista global com IDs corretos
+                    List<Pergunta> todas = Lista_Perguntas.getPerguntas();
+                    if (todas == null || todas.isEmpty()) {
+                        JOptionPane.showMessageDialog(frame, "Nenhuma pergunta carregada!");
+                        return;
+                    }
 
-    //                 Pergunta primeiraPergunta = todas.get(0);
-    //                 int idPrimeira = primeiraPergunta.getId();
+                    Pergunta primeiraPergunta = todas.get(0);
+                    int idPrimeira = primeiraPergunta.getId();
 
-    //                 SwingUtilities.invokeLater(() -> {
-    //                     new Pergunta_Respostas_Frame(
-    //                         1, // índice da pergunta (primeira pergunta)
-    //                         primeiraPergunta, // objeto Pergunta
-    //                         primeiraPergunta.getOpcoes(), // lista de opções
-    //                         primeiraPergunta.getTempo() // tempo para responder
-    //                     );
-    //                 });
-    //             }
-    //         }
-    //     });
-    //     timer.start();
-    // }
+                    SwingUtilities.invokeLater(() -> {
+                        new Pergunta_Respostas_Frame(
+                            1, // índice da pergunta (primeira pergunta)
+                            primeiraPergunta, // objeto Pergunta
+                            primeiraPergunta.getOpcoes(), // lista de opções
+                            primeiraPergunta.getTempo() // tempo para responder
+                        );
+                    });
+                }
+            }
+        });
+        timer.start();
+    }*/
 }

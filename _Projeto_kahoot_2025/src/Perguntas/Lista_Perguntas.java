@@ -5,6 +5,7 @@ import java.util.List;
 
 import Quizz.Pergunta;
 
+
 public class Lista_Perguntas {
 
     private static List<Pergunta> perguntas = new ArrayList<>();

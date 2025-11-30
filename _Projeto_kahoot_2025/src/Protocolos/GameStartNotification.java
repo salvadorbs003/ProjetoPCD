@@ -2,7 +2,7 @@ package Protocolos;
 
 import java.io.Serializable;
 
-public class GameStartNotification implements Serializable {
+public class GameStartNotification extends Mensagem {
     private static final long serialVersionUID = 1L;
 
     private final String pinSala;

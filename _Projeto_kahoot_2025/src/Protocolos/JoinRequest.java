@@ -1,8 +1,6 @@
 package Protocolos;
 
-import java.io.Serializable;
-
-public final class JoinRequest implements Serializable {
+public final class JoinRequest extends Mensagem {
     private static final long serialVersionUID = 1L;
 
     private final String pinSala;
@@ -26,6 +24,4 @@ public final class JoinRequest implements Serializable {
     public String getNomeEquipa() {
         return nomeEquipa;
     }
-    
-
 }

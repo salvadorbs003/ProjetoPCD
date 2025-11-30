@@ -22,7 +22,7 @@ import GameState.Jogador;
 import GameState.Lista_Jogadores;
 import GameState.QuizLoader;
 import Perguntas.Lista_Perguntas;
-import Quizz.Quiz; // Added to work with new QuizLoader signature
+import Quizz.Quiz;
 
 public class Nomes_EntrarJogo_Frame {
 
@@ -141,8 +141,7 @@ public class Nomes_EntrarJogo_Frame {
         }
         int estadoEquipa = cliente.verificarEstadoEquipa(equipa);
         System.out.println(estadoEquipa);
-
-
+        
         if(cliente.verificarJogador(nome, pin)){
             if (estadoEquipa == 0) {
                  int resposta = JOptionPane.showConfirmDialog(frame, 
@@ -204,10 +203,10 @@ public class Nomes_EntrarJogo_Frame {
             }
         } else {
             JOptionPane.showMessageDialog(frame,
-                    "Já existe um jogador no lobby com o nome: " + nome,
-                    "Erro",
-                    JOptionPane.ERROR_MESSAGE);
-                return;
+            		 "Já existe um jogador no lobby com o nome: " + nome,
+                     "Erro",
+                     JOptionPane.ERROR_MESSAGE);
+                 return;
         }
     }
         		    
@@ -225,6 +224,7 @@ public class Nomes_EntrarJogo_Frame {
                 return;
             }
             Lista_Perguntas.definirPerguntas(quiz.getPerguntas());
+
             
             frame.dispose();
             new Entrada_Jogo_Frame();

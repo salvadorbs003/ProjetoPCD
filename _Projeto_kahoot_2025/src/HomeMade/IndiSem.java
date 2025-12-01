@@ -10,13 +10,12 @@ public class IndiSem extends HomeMade {
     private int order=0; //arrival order counter
 
     public synchronized int points(int questPoint){
-        if(!finish) return 0;
+        if(finish) return 0;
 
         order++;
         players--;  //smpr menos qnd uma pessoa responde até chegar ao 0
 
-        int score=0;
-        if(order <= 2) score = questPoint*2;
+        int score = (order <= 2) ? questPoint*2 : questPoint;
         if(players == 0){
             finish = true;
             notifyAll();

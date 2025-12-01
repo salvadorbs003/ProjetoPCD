@@ -23,6 +23,7 @@ public abstract class HomeMade implements TimeoutWaiter{
             if(toFinish<=0){
                 timeoutOccurred = true;
                 finish = true;
+                onFinish();
                 notifyAll();
                 break;
             }
@@ -41,4 +42,6 @@ public abstract class HomeMade implements TimeoutWaiter{
     public boolean timeoutOccurred() {
         return timeoutOccurred;
     }
+
+    protected void onFinish() {}
 }

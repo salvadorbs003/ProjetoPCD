@@ -1,46 +1,45 @@
 package HomeMade;
 
-public class GroupBarrier{
-    private int parties;    // team size
+public class GroupBarrier extends HomeMade{
     private int arrived = 0;
-
-    private boolean finished = false;
-    private boolean timeout = false;
     private Runnable barrierAction;
 
-    public GroupBarrier(int parties,Runnable barrierAction ) {
-        this.parties = parties;
+    public GroupBarrier(long timeoutMil, int teamSize, Runnable barrierAction) {
+        super(timeoutMil, teamSize);   // HomeMade handles timeout + finish
         this.barrierAction = barrierAction;
     }
 
     public synchronized void await() {
-        if (finished) return;
+        if (finish) return;  // inherited from HomeMade
 
         arrived++;
 
-        if (arrived >= parties) {
-            // everyone in team has answered
-            finished = true;
+        // Normal barrier completion: all team members answered
+        if (arrived == players) {  // 'players' is inherited and equals teamSize
+            finish = true;
             if (barrierAction != null) barrierAction.run();
             notifyAll();
             return;
         }
 
-        while (!finished) {
-            try { wait(); }
-            catch (InterruptedException e) { Thread.currentThread().interrupt(); return; }
+        // Otherwise wait for normal completion OR timeout
+        while (!finish) {
+            try {
+                wait();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
         }
     }
 
-    public synchronized void timeoutRelease() {
-        if (finished) return;
-        timeout = true;
-        finished = true;
-        if (barrierAction != null) barrierAction.run();
-        notifyAll();
+    @Override
+    protected synchronized void onFinish() {
+        // Triggered by HomeMade when timeout happens
+        if (barrierAction != null)
+            barrierAction.run();
+        // notifyAll() is already done in HomeMade after calling onFinish()
     }
-
-    public boolean timeoutOccurred() { return timeout; }
 
 
 }

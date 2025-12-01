@@ -23,7 +23,7 @@ import Protocolos.CheckPlayerRequest;
 import Protocolos.CheckPlayerResponse;
 import Protocolos.CheckSalaRequest;
 import Protocolos.CheckSalaResponse;
-import Protocolos.GameStartNotification;
+import Protocolos.GameStartRequest;
 import Protocolos.JoinRequest;
 import Protocolos.JoinResponse;
 import Protocolos.LobbyStateRequest;
@@ -243,10 +243,10 @@ public class Servidor {
             
             notificarTodosClientes(join.getPinSala(), estadoEquipa);
             
-            if (sala.canStart()) {
-                GameStartNotification notify = new GameStartNotification(join.getPinSala());
-                notificarTodosClientes(join.getPinSala(), notify);
-            }
+            // if (sala.canStart()) {
+            //     GameStartNotification notify = new GameStartNotification(join.getPinSala());
+            //     notificarTodosClientes(join.getPinSala(), notify);
+            // }
             
             handler.enviarMensagem(JoinResponse.ok("Jogador '" + nome + "' juntou-se à equipa '" + equipa + "' com sucesso!"));
         }

@@ -18,7 +18,7 @@ import Protocolos.CheckPlayerRequest;
 import Protocolos.CheckPlayerResponse;
 import Protocolos.CheckSalaRequest;
 import Protocolos.CheckSalaResponse;
-import Protocolos.GameStartNotification;
+import Protocolos.GameStartRequest;
 import Protocolos.JoinRequest;
 import Protocolos.JoinResponse;
 import Protocolos.TeamStatusRequest;
@@ -35,6 +35,10 @@ public class Cliente {
     private String pin;
     private String equipa;
     private String nome;
+    private Socket socket;
+    private ObjectOutputStream out;
+    private ObjectInputStream in;
+
 
     public Cliente(String host, int port, String pin, String equipa, String nome) {
         this.host = host;
@@ -42,6 +46,14 @@ public class Cliente {
         this.pin = pin;
         this.equipa = equipa;
         this.nome = nome;
+    }
+
+    private boolean abrirLigacao() throws IOException {
+        socket = new Socket(host, port);
+        out = new ObjectOutputStream(socket.getOutputStream());
+        out.flush();
+        in = new ObjectInputStream(socket.getInputStream());
+        return true;
     }
 
     /**
@@ -52,9 +64,8 @@ public class Cliente {
     public boolean ligar() {
     	
     	System.out.println("Im trying to connect to the server!");
-        try(Socket socket = new Socket(host, port);
-            ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
-            ObjectInputStream in = new ObjectInputStream(socket.getInputStream())) {
+        try{
+            abrirLigacao();
             out.flush();
             JoinRequest join = new JoinRequest(pin, nome, equipa);
             
@@ -73,7 +84,7 @@ public class Cliente {
                     
                 } else if(answer instanceof TeamStatusResponse){
                     System.out.println("Estado equipa: " + ((TeamStatusResponse) answer).getEquipaNome());
-                } else if(answer instanceof GameStartNotification){
+                } else if(answer instanceof GameStartRequest){
                     return true;
                 }
             }
@@ -83,7 +94,9 @@ public class Cliente {
         }catch (IOException | ClassNotFoundException e) {
             System.err.println(" Erro ao ligar ao servidor: " + e.getMessage());
             return false;
-        } 
+        } finally{
+            fechar();
+        }
     }
 
     /**
@@ -170,4 +183,18 @@ public class Cliente {
             return false;
         }
     }
+
+    public synchronized void enviarGameStartRequest(String pin) throws IOException {
+        GameStartRequest req = new GameStartRequest(pin, nome, equipa); // or fields you need
+        out.writeObject(req);
+        out.flush();
+    }
+
+    public void fechar() {
+        try { if (out != null) out.close(); } catch (Exception ignored) {}
+        try { if (in != null) in.close(); } catch (Exception ignored) {}
+        try { if (socket != null && !socket.isClosed()) socket.close(); } catch (Exception ignored) {}
+    }
+
+
 }

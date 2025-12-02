@@ -24,9 +24,7 @@ public class NextQuestion extends Mensagem {
         this.scoreboard = scoreboard;
         this.totalQuestions = totalQuestions;
     }
-
-    // getters...
-
+    
     public static class PlayerScore implements java.io.Serializable {
         private final String teamName;
         private final String playerName;

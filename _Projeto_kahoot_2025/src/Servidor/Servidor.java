@@ -33,6 +33,7 @@ import Protocolos.TeamStatusRequest;
 import Protocolos.TeamStatusResponse;
 import Quizz.Quiz;
 import Protocolos.MensagemChat;
+import Protocolos.NextQuestion;
 
 
 public class Servidor {
@@ -77,6 +78,7 @@ public class Servidor {
         }
     }
     
+    //Cria a sala, gera PIN e loads the QUizz
     private static synchronized void criarSala() {
         String pin = gerarPIN();
         Quiz quizz = QuizLoader.load(0);
@@ -196,6 +198,7 @@ public class Servidor {
     }
     
     public static void processarJoin(ClientHandler handler, JoinRequest join) {
+        int round = 0;
         System.out.println("Im on processarJoin method!");
 
         GameState sala = getSala(join.getPinSala());
@@ -244,7 +247,7 @@ public class Servidor {
             notificarTodosClientes(join.getPinSala(), estadoEquipa);
             
             // if (sala.canStart()) {
-            //     GameStartNotification notify = new GameStartNotification(join.getPinSala());
+            //     NextQuestion notify = new NextQuestion(join.getPinSala(), round, );
             //     notificarTodosClientes(join.getPinSala(), notify);
             // }
             

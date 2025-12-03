@@ -14,6 +14,7 @@ public class GameState {
 	private String codigoPIN;
     private final HashMap<String, Equipa> teams = new HashMap<>();
     private List<Pergunta> perguntas;
+    private int currentQ = 0;
 
     public GameState(String pin, List<Pergunta> perguntas) {
         this.codigoPIN = pin;

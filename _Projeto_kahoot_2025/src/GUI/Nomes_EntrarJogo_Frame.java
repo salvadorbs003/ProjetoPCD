@@ -18,10 +18,9 @@ import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 
 import Cliente.Cliente;
+import GameState.ClientGameState;
 import GameState.Jogador;
-import GameState.Lista_Jogadores;
 import GameState.QuizLoader;
-import Perguntas.Lista_Perguntas;
 import Quizz.Quiz;
 
 public class Nomes_EntrarJogo_Frame {
@@ -33,6 +32,7 @@ public class Nomes_EntrarJogo_Frame {
     private JPanel p1, p2, p3, p4;
     private List<String> nomes = new ArrayList<>();
     private String pin; // <- vem da frame anterior
+    private ClientGameState gameState;
 
     public Nomes_EntrarJogo_Frame(String pin) {
     	
@@ -212,8 +212,6 @@ public class Nomes_EntrarJogo_Frame {
         		    
         private void iniciarJogo(String nome,  String equipa){
             Jogador jogador = new Jogador(nome, equipa);
-            Lista_Jogadores.adicionarJogador(jogador);
-            Lista_Jogadores.definirJogadorAtual(jogador);
 
             Quiz quiz = QuizLoader.load(0); // QuizLoader now devolve um Quiz específico (comentário esclarece alteração)
             if (quiz == null || quiz.getPerguntas() == null) {
@@ -223,10 +221,10 @@ public class Nomes_EntrarJogo_Frame {
                     JOptionPane.ERROR_MESSAGE);
                 return;
             }
-            Lista_Perguntas.definirPerguntas(quiz.getPerguntas());
+            gameState = new ClientGameState(quiz.getPerguntas());
+            gameState.definirJogadorAtual(jogador);
 
-            
             frame.dispose();
-            new Entrada_Jogo_Frame();
+            new Entrada_Jogo_Frame(gameState);
    }
 }

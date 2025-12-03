@@ -8,7 +8,7 @@ public class Pergunta {
 	        INDIVIDUAL, GROUP
 	    }
 
-	    private int id; // Added ID so Lista_Perguntas can reference perguntas sequencially
+	    private int id; // Identificador sequencial opcional para a pergunta
 	    private Type type;
 	    private String question;  
 	    private List<String> options;
@@ -64,7 +64,7 @@ public class Pergunta {
 	    }
 
 	    public int getId() {
-	        return id; // Expose ID so Lista_Perguntas can fetch by identifier
+	        return id;
 	    }
 
 	    public void setId(int id) {
@@ -95,5 +95,18 @@ public class Pergunta {
 	    public void setIndiceCorreto(int indice) {
 	        setCorrect(indice);
 	    }
+
+		@Override
+		public String toString() {
+			return "Pergunta{" +
+					"id=" + id +
+					", type=" + type +
+					", question='" + question + '\'' +
+					", options=" + options +
+					", correct=" + correct +
+					", points=" + points +
+					", tempo=" + tempo +
+					'}';
+		}
 	
 }

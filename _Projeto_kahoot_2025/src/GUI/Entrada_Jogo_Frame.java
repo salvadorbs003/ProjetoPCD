@@ -2,10 +2,8 @@ package GUI;
 
 import javax.swing.*;
 
-import GameState.QuizLoader;
-import Perguntas.Lista_Perguntas;
+import GameState.ClientGameState;
 import Quizz.Pergunta;
-import Quizz.Quiz;
 
 import java.awt.*;
 import java.awt.event.ActionEvent;
@@ -19,9 +17,10 @@ public class Entrada_Jogo_Frame {
     private JLabel labelContagem;
     private Timer timer;
     private int contagem = 3; // começa a contagem de 3 segundos
-    private List<Pergunta> perguntas; // lista carregada com Gson
+    private final ClientGameState gameState;
 
-    public Entrada_Jogo_Frame() {
+    public Entrada_Jogo_Frame(ClientGameState gameState) {
+        this.gameState = gameState;
     	
         frame = new JFrame("Início do Jogo");
         frame.setSize(400, 200);
@@ -42,18 +41,7 @@ public class Entrada_Jogo_Frame {
         frame.setLocationRelativeTo(null);
         frame.setVisible(true);
 
-        // 💡 Carrega as perguntas do ficheiro JSON (usando o Gson)
-        Quiz quizz = QuizLoader.load(0);
-        if (quizz == null) {
-            JOptionPane.showMessageDialog(frame,
-                "❌ Erro: Não foi possível carregar o quiz selecionado.",
-                "Erro no Quiz",
-                JOptionPane.ERROR_MESSAGE);
-            frame.dispose();
-            return;
-        }
-
-        perguntas = quizz.getPerguntas();
+        List<Pergunta> perguntas = gameState != null ? gameState.getPerguntas() : null;
         if (perguntas == null || perguntas.isEmpty()) {
             JOptionPane.showMessageDialog(frame, 
                 "❌ Erro: Nenhuma pergunta encontrada no ficheiro JSON!",
@@ -65,39 +53,4 @@ public class Entrada_Jogo_Frame {
 
        // startContagem();
     }
-
-   /* private void startContagem() {
-        labelContagem.setText(contagem + "!");
-        timer = new Timer(1000, new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                contagem--;
-                if (contagem > 0) {
-                    labelContagem.setText(contagem + "!");
-                } else {
-                    timer.stop();
-                    frame.dispose();
-
-                    // agora pegamos da lista global com IDs corretos
-                    List<Pergunta> todas = Lista_Perguntas.getPerguntas();
-                    if (todas == null || todas.isEmpty()) {
-                        JOptionPane.showMessageDialog(frame, "Nenhuma pergunta carregada!");
-                        return;
-                    }
-
-                    Pergunta primeiraPergunta = todas.get(0);
-                    int idPrimeira = primeiraPergunta.getId();
-
-                    SwingUtilities.invokeLater(() -> {
-                        new Pergunta_Respostas_Frame(
-                            1, // índice da pergunta (primeira pergunta)
-                            primeiraPergunta, // objeto Pergunta
-                            primeiraPergunta.getOpcoes(), // lista de opções
-                            primeiraPergunta.getTempo() // tempo para responder
-                        );
-                    });
-                }
-            }
-        });
-        timer.start();
-    }*/
 }

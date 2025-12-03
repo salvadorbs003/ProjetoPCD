@@ -19,22 +19,22 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 
-import GameState.Lista_Jogadores;
+import GameState.ClientGameState;
 
 public class Classificacao_Final_Frame {
 
 	 private JFrame frame;
 	    Color fundoRoxo = new Color(45, 25, 120);
 
-	    public Classificacao_Final_Frame(int meuIndice, String nomeQuiz) {
+	    public Classificacao_Final_Frame(ClientGameState gameState, int meuIndice, String nomeQuiz) {
 	        frame = new JFrame("Kahoot - Classificação Final");
 	        frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
 	        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 	        frame.getContentPane().setBackground(fundoRoxo);
 	        frame.setLayout(new BorderLayout());
 	        
-	        String[] nomes = Lista_Jogadores.getNomes();
-	        int[] pontos = Lista_Jogadores.getPontuacoes();
+	        String[] nomes = gameState != null ? gameState.getNomes() : null;
+	        int[] pontos = gameState != null ? gameState.getPontuacoes() : null;
 
 	        // Cabeçalho
 	        JPanel topo = new JPanel();

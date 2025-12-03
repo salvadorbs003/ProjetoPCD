@@ -7,6 +7,7 @@ import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GridLayout;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -26,9 +27,8 @@ import javax.swing.JSeparator;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 
+import GameState.ClientGameState;
 import GameState.Jogador;
-import GameState.Lista_Jogadores;
-import Perguntas.Lista_Perguntas;
 import Quizz.Pergunta;
 
 public class Pergunta_Respostas_Frame {
@@ -49,21 +49,23 @@ public class Pergunta_Respostas_Frame {
     private JPanel listaSubmissoesEquipas;
     private final Set<String> jogadoresResponderam = new LinkedHashSet<>();
     private final Set<String> equipasResponderam = new LinkedHashSet<>();
-    int perguntaAtualId;
     private int indicePergunta;
     private final Color fundoPrincipal = new Color(45, 25, 120);
     private final Color fundoPainel = new Color(33, 18, 90);
+    private final ClientGameState gameState;
+    private final Jogador jogadorAtual;
 
 
 
 
-    public Pergunta_Respostas_Frame(int indicePergunta, Pergunta pergunta,  java.util.List<String> opcoes, int tempoRestante) {
+    public Pergunta_Respostas_Frame(int indicePergunta, Pergunta pergunta,  java.util.List<String> opcoes, int tempoRestante, ClientGameState gameState) {
     	this.pergunta = pergunta;
     	this.tempoRestante = tempoRestante;
     	this.opcoes = opcoes;
-    	this.jogadorId = Lista_Jogadores.getIdJogadorAtual();
-    	 this.indicePergunta = indicePergunta;
-         this.perguntaAtualId = pergunta.getId();
+        this.gameState = gameState;
+        this.jogadorAtual = gameState != null ? gameState.getJogadorAtual() : null;
+        this.jogadorId = gameState != null ? gameState.getIndiceJogador(jogadorAtual) : -1;
+        this.indicePergunta = indicePergunta;
     	
         frame = new JFrame("Kahoot - Pergunta " + indicePergunta);
         frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
@@ -160,14 +162,13 @@ public class Pergunta_Respostas_Frame {
         
         if (correta) {
             pontos = tempoRestante * 10;
-            Lista_Jogadores.adicionarPontos(jogadorId, pontos);
+            gameState.adicionarPontos(jogadorAtual, pontos);
             System.out.println("Resposta Correta! Jogador " + this.jogadorId + " + " + pontos + " pontos.");
         } else {
         	System.out.println("Resposta Errada! Jogador " + this.jogadorId + " + 0 pontos.");
         }
-        Jogador jogador = Lista_Jogadores.getJogadorPorId(jogadorId);
-        String nomeJogador = jogador != null ? jogador.getNome() : "Jogador " + jogadorId;
-        String nomeEquipa = jogador != null ? jogador.getEquipa() : null;
+        String nomeJogador = jogadorAtual != null ? jogadorAtual.getNome() : "Jogador " + jogadorId;
+        String nomeEquipa = jogadorAtual != null ? jogadorAtual.getEquipa() : null;
         registrarRespostaRecebida(nomeJogador, nomeEquipa);
         atualizarPainelPontuacoes();
         terminarRonda(correta, idx);
@@ -192,38 +193,29 @@ public class Pergunta_Respostas_Frame {
         }).start();
     }
     private void avancarParaProximaPergunta() {
-        List<Pergunta> todasPerguntas = Lista_Perguntas.getPerguntas();
+        List<Pergunta> todasPerguntas = gameState != null ? gameState.getPerguntas() : null;
         
         if (todasPerguntas == null || todasPerguntas.isEmpty()) {
             JOptionPane.showMessageDialog(frame, "Erro: Nenhuma pergunta carregada!");
             return;
         }
         
-      
-        int proximoIndice = this.indicePergunta; // Índice atual
-        Pergunta proximaPergunta = null;
-        
-        // Procurar próxima pergunta na lista
-        for (int i = 0; i < todasPerguntas.size(); i++) {
-            if (todasPerguntas.get(i).getId() == this.perguntaAtualId + 1) {
-                proximaPergunta = todasPerguntas.get(i);
-                proximoIndice = i + 1; // Índice para display
-                break;
-            }
-        }
-        
-        if (proximaPergunta != null) {
+        int proximoIndice = this.indicePergunta; // Índice atual (1-based)
+
+        if (proximoIndice < todasPerguntas.size()) {
+            Pergunta proximaPergunta = todasPerguntas.get(proximoIndice);
             frame.dispose();
             new Pergunta_Respostas_Frame(
-                proximoIndice,
+                proximoIndice + 1,
                 proximaPergunta,
                 proximaPergunta.getOpcoes(),
-                proximaPergunta.getTempo()
+                proximaPergunta.getTempo(),
+                gameState
             );
         } else {
 
             frame.dispose();
-            new Classificacao_Final_Frame(0, "Quiz Final");
+            new Classificacao_Final_Frame(gameState, 0, "Quiz Final");
         }
     }
     
@@ -312,7 +304,8 @@ public class Pergunta_Respostas_Frame {
 
     private Map<String, TeamScore> agruparPontuacoesPorEquipa() {
         Map<String, TeamScore> mapa = new LinkedHashMap<>();
-        for (Jogador j : Lista_Jogadores.getJogadores()) {
+        List<Jogador> jogadores = gameState != null ? gameState.getJogadores() : Collections.emptyList();
+        for (Jogador j : jogadores) {
             String nomeEquipa = j.getEquipa() != null ? j.getEquipa() : "Sem equipa";
             TeamScore equipa = mapa.computeIfAbsent(nomeEquipa, TeamScore::new);
             equipa.totalPontos += j.getPontuacao();

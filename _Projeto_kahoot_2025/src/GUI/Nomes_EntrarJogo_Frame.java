@@ -21,6 +21,7 @@ import Cliente.Cliente;
 import GameState.ClientGameState;
 import GameState.Jogador;
 import GameState.QuizLoader;
+import Protocolos.NextQuestion;
 import Quizz.Quiz;
 
 public class Nomes_EntrarJogo_Frame {
@@ -33,6 +34,9 @@ public class Nomes_EntrarJogo_Frame {
     private List<String> nomes = new ArrayList<>();
     private String pin; // <- vem da frame anterior
     private ClientGameState gameState;
+    String host = "localhost";
+    int port = 12345;
+    Cliente cliente;
 
     public Nomes_EntrarJogo_Frame(String pin) {
     	
@@ -123,6 +127,7 @@ public class Nomes_EntrarJogo_Frame {
     private void tentarEntrar() {
         String nome = nomeField.getText().trim();
         String equipa = equipaField.getText().trim();
+        this.cliente = new Cliente(host, port, pin, equipa, nome);
 
         if (nome.isEmpty() || nome.startsWith("Insere") ||
             equipa.isEmpty() || equipa.startsWith("Insere")) {
@@ -131,9 +136,7 @@ public class Nomes_EntrarJogo_Frame {
         }
 
         // tenta ligação ao servidor
-        String host = "localhost";
-        int port = 12345;
-        Cliente cliente = new Cliente(host, port, pin, equipa, nome);
+        
         
         if (!cliente.validarSala()) {
             JOptionPane.showMessageDialog(frame, "PIN inválido!");
@@ -210,21 +213,30 @@ public class Nomes_EntrarJogo_Frame {
         }
     }
         		    
-        private void iniciarJogo(String nome,  String equipa){
-            Jogador jogador = new Jogador(nome, equipa);
+       // Inside Nomes_EntrarJogo_Frame.java
 
-            Quiz quiz = QuizLoader.load(0); // QuizLoader now devolve um Quiz específico (comentário esclarece alteração)
-            if (quiz == null || quiz.getPerguntas() == null) {
-                JOptionPane.showMessageDialog(frame,
-                    "Não foi possível carregar o quiz selecionado.",
-                    "Erro",
-                    JOptionPane.ERROR_MESSAGE);
-                return;
-            }
-            gameState = new ClientGameState(quiz.getPerguntas());
-            gameState.definirJogadorAtual(jogador);
+    private void iniciarJogo(String nome, String equipa) {
+        // Run network operations in a background thread to keep UI responsive
+        new Thread(() -> {
+            
+            // 1. Request the first question from the server
+            NextQuestion nextQ = cliente.enviarGameStartRequest(pin);
 
-            frame.dispose();
-            new Entrada_Jogo_Frame(gameState);
-   }
+            // 2. Update UI on the Event Dispatch Thread
+            SwingUtilities.invokeLater(() -> {
+                if (nextQ != null) {
+                    frame.dispose(); // Close the lobby
+                    
+                    // Pass the FULL Protocol object to the GUI
+                    new Pergunta_Respostas_Frame(nextQ, cliente); 
+                } else {
+                    JOptionPane.showMessageDialog(frame, 
+                        "Erro ao obter a pergunta do servidor.", 
+                        "Erro", 
+                        JOptionPane.ERROR_MESSAGE);
+                }
+            });
+            
+        }).start();
+    }
 }

@@ -25,6 +25,7 @@ public class Codigo_PINInicial_Frame {
 	private JFrame frame;
     private JTextField campoPin;
     private JButton botaoInserir;
+    
 
     public Codigo_PINInicial_Frame() {
 

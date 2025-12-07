@@ -6,16 +6,12 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GridLayout;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 import javax.swing.BorderFactory;
+import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JFrame;
@@ -23,398 +19,215 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.JSeparator;
 import javax.swing.SwingConstants;
-import javax.swing.SwingUtilities;
+import javax.swing.Timer;
 
-import GameState.ClientGameState;
-import GameState.Jogador;
+import Cliente.Cliente;
+import GameState.ScoreBoard;
+import Protocolos.NextQuestion;
 import Quizz.Pergunta;
 
 public class Pergunta_Respostas_Frame {
 
-	private JFrame frame;
-    private JLabel tempoLabel, perguntaLabel, indiceLabel;
-    private JButton[] botoesResposta;
-    private int tempoRestante;
-    private boolean respondeu = false;
-    private Thread temporizadorThread;
-    private java.util.List<String> opcoes;
-    private Pergunta pergunta;
-    private int jogadorId;
-    private JPanel painelPontuacoes;
-    private JPanel listaEquipasPanel;
-    private JPanel painelSubmissoes;
-    private JPanel listaSubmissoesJogadores;
-    private JPanel listaSubmissoesEquipas;
-    private final Set<String> jogadoresResponderam = new LinkedHashSet<>();
-    private final Set<String> equipasResponderam = new LinkedHashSet<>();
-    private int indicePergunta;
-    private final Color fundoPrincipal = new Color(45, 25, 120);
-    private final Color fundoPainel = new Color(33, 18, 90);
-    private final ClientGameState gameState;
-    private final Jogador jogadorAtual;
+    private JFrame frame;
+    private JLabel labelTimer;
+    private JLabel labelQuestion;
+    private JPanel panelAnswers;
+    
+    private Timer timer;
+    private int remainingTime;
+    
+    // Data
+    private final NextQuestion questionData;
+    private final Pergunta pergunta;
+    private final Cliente client; 
 
+    // Kahoot Colors
+    private final Color COLOR_BG = new Color(70, 23, 143); // Deep Purple
+    private final Color COLOR_BTN_RED = new Color(226, 27, 60);
+    private final Color COLOR_BTN_BLUE = new Color(19, 104, 206);
+    private final Color COLOR_BTN_YELLOW = new Color(216, 158, 0);
+    private final Color COLOR_BTN_GREEN = new Color(38, 137, 12);
+    private final Color[] BTN_COLORS = {COLOR_BTN_RED, COLOR_BTN_BLUE, COLOR_BTN_YELLOW, COLOR_BTN_GREEN};
 
+    public Pergunta_Respostas_Frame(NextQuestion data, Cliente client) {
+        this.questionData = data;
+        this.client = client;
+        
+        // Extract data from the Protocol object
+        this.pergunta = data.getPergunta();
+        this.remainingTime = data.getTime();
 
+        initializeUI();
+        startTimer();
+    }
 
-    public Pergunta_Respostas_Frame(int indicePergunta, Pergunta pergunta,  java.util.List<String> opcoes, int tempoRestante, ClientGameState gameState) {
-    	this.pergunta = pergunta;
-    	this.tempoRestante = tempoRestante;
-    	this.opcoes = opcoes;
-        this.gameState = gameState;
-        this.jogadorAtual = gameState != null ? gameState.getJogadorAtual() : null;
-        this.jogadorId = gameState != null ? gameState.getIndiceJogador(jogadorAtual) : -1;
-        this.indicePergunta = indicePergunta;
-    	
-        frame = new JFrame("Kahoot - Pergunta " + indicePergunta);
+    private void initializeUI() {
+        // Accessing ID via the Pergunta object now
+        frame = new JFrame("Kahoot - Round " + questionData.getRound() + " | Question " + pergunta.getId());
         frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setLayout(new BorderLayout());
-        frame.getContentPane().setBackground(fundoPrincipal);
+        frame.getContentPane().setBackground(COLOR_BG);
 
-        JPanel p1 = new JPanel(new BorderLayout());
-        p1.setBackground(fundoPrincipal);
-        p1.setBorder(BorderFactory.createEmptyBorder(30, 50, 30, 50));
+        // --- 1. HEADER (Top) ---
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setBackground(COLOR_BG);
+        headerPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
-        indiceLabel = new JLabel("Pergunta " + indicePergunta);
-        indiceLabel.setForeground(Color.WHITE);
-        indiceLabel.setFont(new Font("Arial", Font.BOLD, 26));
+        // Timer Circle (Left)
+        labelTimer = new JLabel(String.valueOf(remainingTime), SwingConstants.CENTER);
+        labelTimer.setFont(new Font("Arial", Font.BOLD, 30));
+        labelTimer.setForeground(Color.WHITE);
+        labelTimer.setOpaque(true);
+        labelTimer.setBackground(new Color(50, 0, 100));
+        labelTimer.setPreferredSize(new Dimension(80, 80));
+        labelTimer.setBorder(BorderFactory.createLineBorder(Color.WHITE, 2, true));
+        
+        // Question Text (Center) - Accessed via Pergunta object
+        labelQuestion = new JLabel("<html><center>" + pergunta.getTexto() + "</center></html>", SwingConstants.CENTER);
+        labelQuestion.setFont(new Font("Arial", Font.BOLD, 36));
+        labelQuestion.setForeground(Color.WHITE);
+        
+        headerPanel.add(labelTimer, BorderLayout.WEST);
+        headerPanel.add(labelQuestion, BorderLayout.CENTER);
+        
+        frame.add(headerPanel, BorderLayout.NORTH);
 
-        tempoLabel = new JLabel("⏱️" + tempoRestante + "s", SwingConstants.RIGHT);
-        tempoLabel.setForeground(Color.WHITE);
-        tempoLabel.setFont(new Font("Arial", Font.BOLD, 26));
+        // --- 2. ANSWERS (Center) ---
+        panelAnswers = new JPanel(new GridLayout(2, 2, 15, 15));
+        panelAnswers.setBackground(COLOR_BG);
+        panelAnswers.setBorder(BorderFactory.createEmptyBorder(20, 50, 50, 50));
 
-        perguntaLabel = new JLabel(pergunta.getTexto(), SwingConstants.CENTER);
-        perguntaLabel.setForeground(Color.WHITE);
-        perguntaLabel.setFont(new Font("Arial", Font.BOLD, 30));
-        perguntaLabel.setBorder(BorderFactory.createEmptyBorder(20, 0, 20, 0));
-
-        p1.add(indiceLabel, BorderLayout.WEST);
-        p1.add(tempoLabel, BorderLayout.EAST);
-        p1.add(perguntaLabel, BorderLayout.SOUTH);
-
-        JPanel p2 = new JPanel(new GridLayout(2, 2, 20, 20));
-        p2.setBackground(fundoPrincipal);
-        p2.setBorder(BorderFactory.createEmptyBorder(80, 120, 80, 220));
-
-        Color[] cores = { new Color(220, 53, 69), new Color(0, 123, 255), new Color(255, 193, 7), new Color(40, 167, 69) };
-
-        botoesResposta = new JButton[4];
-
-        for (int i = 0; i < 4; i++) {
-            botoesResposta[i] = new JButton(opcoes.get(i));
-            botoesResposta[i].setFont(new Font("Arial", Font.BOLD, 20));
-            botoesResposta[i].setForeground(Color.WHITE);
-            botoesResposta[i].setBackground(cores[i]);
-            botoesResposta[i].setFocusPainted(false);
-            botoesResposta[i].setOpaque(true);
-            botoesResposta[i].setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
-            p2.add(botoesResposta[i]);
-
-            int idx = i;
-            botoesResposta[i].addActionListener(e -> responder(idx));
+        List<String> options = pergunta.getOptions();
+        for (int i = 0; i < options.size(); i++) {
+            JButton btn = createAnswerButton(options.get(i), BTN_COLORS[i % 4], i);
+            panelAnswers.add(btn);
         }
 
-        frame.add(p1, BorderLayout.NORTH);
-        frame.add(p2, BorderLayout.CENTER);
+        frame.add(panelAnswers, BorderLayout.CENTER);
+
+        // --- 3. SCOREBOARD (Right Sidebar) ---
+        if (questionData.getScoreboard() != null) {
+            JPanel sidebar = createScoreboardPanel();
+            frame.add(sidebar, BorderLayout.EAST);
+        }
+
         frame.setVisible(true);
-        construirPainelLateral();
-        construirPainelSubmissoes();
-
-
-        iniciarContagem(); 
     }
 
-    private void iniciarContagem() {
-        temporizadorThread = new Thread(() -> {
-            while (tempoRestante > 0 && !respondeu) {
-                try {
-                    Thread.sleep(1000); 
-                } catch (InterruptedException e) {
-                    return;
-                }
-                tempoRestante--; //assim passa de segundo a segundo
-                tempoLabel.setText("⏱️" + tempoRestante + "s");
+    private JButton createAnswerButton(String text, Color color, int index) {
+        JButton btn = new JButton(text);
+        btn.setFont(new Font("Arial", Font.BOLD, 24));
+        btn.setForeground(Color.WHITE);
+        btn.setBackground(color);
+        btn.setFocusPainted(false);
+        
+        btn.addActionListener(e -> submitAnswer(index));
+        return btn;
+    }
+
+    private JPanel createScoreboardPanel() {
+        JPanel panel = new JPanel();
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setBackground(new Color(45, 15, 95)); // Darker purple
+        panel.setPreferredSize(new Dimension(280, 0));
+        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+        ScoreBoard sb = questionData.getScoreboard();
+        
+        // Determine Title based on ScoreBoard Type
+        String titleText = (sb.getType() == ScoreBoard.ScoreType.TEAM) ? "Team Leaderboard" : "Player Leaderboard";
+        JLabel title = new JLabel(titleText);
+        title.setFont(new Font("Arial", Font.BOLD, 20));
+        title.setForeground(Color.WHITE);
+        title.setAlignmentX(Component.CENTER_ALIGNMENT);
+        
+        panel.add(title);
+        panel.add(Box.createVerticalStrut(15));
+
+        // Render List based on ScoreBoard Type
+        if (sb.getType() == ScoreBoard.ScoreType.TEAM) {
+            // Render Team Scores
+            for (ScoreBoard.TeamScore ts : sb.getTeamScores()) {
+                addScoreCard(panel, ts.getTeamName(), ts.getPoints());
             }
-            if (!respondeu) {
-            	 respondeu = true; // evita duplicação
-                 SwingUtilities.invokeLater(() -> {
-                     JOptionPane.showMessageDialog(frame, "⏰ Tempo esgotado!", "Aviso", JOptionPane.WARNING_MESSAGE);
-                     terminarRonda(false,-1);
-                 });
-                
+        } else {
+            // Render Player Scores
+            for (ScoreBoard.PlayerScore ps : sb.getPlayerScores()) {
+                // You can include team name in display if you want: ps.getPlayerName() + " (" + ps.getTeamName() + ")"
+                addScoreCard(panel, ps.getPlayerName(), ps.getPoints());
+            }
+        }
+        
+        // Wrap in ScrollPane
+        JPanel wrapper = new JPanel(new BorderLayout());
+        wrapper.setPreferredSize(new Dimension(280, 0));
+        wrapper.add(new JScrollPane(panel), BorderLayout.CENTER);
+        return wrapper;
+    }
+
+    // Helper method to create a visual card for a score entry
+    private void addScoreCard(JPanel panel, String name, int points) {
+        JPanel card = new JPanel(new BorderLayout());
+        card.setBackground(Color.WHITE);
+        card.setMaximumSize(new Dimension(250, 40));
+        card.setPreferredSize(new Dimension(250, 40));
+        card.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
+
+        JLabel nameLbl = new JLabel(name);
+        nameLbl.setFont(new Font("Arial", Font.BOLD, 14));
+        nameLbl.setForeground(Color.BLACK);
+        
+        JLabel scoreLbl = new JLabel(String.valueOf(points));
+        scoreLbl.setFont(new Font("Arial", Font.BOLD, 14));
+        scoreLbl.setForeground(new Color(70, 23, 143)); // Purple text for points
+
+        card.add(nameLbl, BorderLayout.WEST);
+        card.add(scoreLbl, BorderLayout.EAST);
+
+        panel.add(card);
+        panel.add(Box.createVerticalStrut(8));
+    }
+
+    private void startTimer() {
+        timer = new Timer(1000, new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                remainingTime--;
+                labelTimer.setText(String.valueOf(remainingTime));
+
+                if (remainingTime <= 0) {
+                    timer.stop();
+                    disableButtons();
+                    JOptionPane.showMessageDialog(frame, "Time's up!");
+                    submitAnswer(-1); 
+                }
             }
         });
-        temporizadorThread.start();
+        timer.setInitialDelay(0);
+        timer.start();
     }
 
-    private void responder(int idx) {
-    	//se o jogador já respondeu uma vez, ele já sai da função porque não pode responder + que 1 vez
-        if (respondeu == true) return;
+    private void submitAnswer(int index) {
+        timer.stop();
+        disableButtons();
         
-        respondeu = true;
-
-        //ainda se tem de ver a pontuação!!
-        int pontos = tempoRestante * 10;
-        
-        boolean correta = (idx == pergunta.getIndiceCorreto());
-        
-        if (correta) {
-            pontos = tempoRestante * 10;
-            gameState.adicionarPontos(jogadorAtual, pontos);
-            System.out.println("Resposta Correta! Jogador " + this.jogadorId + " + " + pontos + " pontos.");
+        if(index >= 0) {
+            System.out.println("Selected answer index: " + index);
+            // TODO: Call client method to send answer to server
+            // client.enviarResposta(index); 
         } else {
-        	System.out.println("Resposta Errada! Jogador " + this.jogadorId + " + 0 pontos.");
+            System.out.println("Time out / No answer");
         }
-        String nomeJogador = jogadorAtual != null ? jogadorAtual.getNome() : "Jogador " + jogadorId;
-        String nomeEquipa = jogadorAtual != null ? jogadorAtual.getEquipa() : null;
-        registrarRespostaRecebida(nomeJogador, nomeEquipa);
-        atualizarPainelPontuacoes();
-        terminarRonda(correta, idx);
     }
 
-    private void terminarRonda(boolean respondeu, int respostaEscolhida) {
-        respondeu = true;
-        if (temporizadorThread != null && temporizadorThread.isAlive()) {
-            temporizadorThread.interrupt();
-        }
-        
-        new Thread(() -> {
-            try {
-                SwingUtilities.invokeLater(() -> {
-                    avancarParaProximaPergunta();
-                    
-                });
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
+    private void disableButtons() {
+        for (Component c : panelAnswers.getComponents()) {
+            if (c instanceof JButton) {
+                c.setEnabled(false);
+                ((JButton)c).setBackground(Color.GRAY);
             }
-        }).start();
-    }
-    private void avancarParaProximaPergunta() {
-        List<Pergunta> todasPerguntas = gameState != null ? gameState.getPerguntas() : null;
-        
-        if (todasPerguntas == null || todasPerguntas.isEmpty()) {
-            JOptionPane.showMessageDialog(frame, "Erro: Nenhuma pergunta carregada!");
-            return;
-        }
-        
-        int proximoIndice = this.indicePergunta; // Índice atual (1-based)
-
-        if (proximoIndice < todasPerguntas.size()) {
-            Pergunta proximaPergunta = todasPerguntas.get(proximoIndice);
-            frame.dispose();
-            new Pergunta_Respostas_Frame(
-                proximoIndice + 1,
-                proximaPergunta,
-                proximaPergunta.getOpcoes(),
-                proximaPergunta.getTempo(),
-                gameState
-            );
-        } else {
-
-            frame.dispose();
-            new Classificacao_Final_Frame(gameState, 0, "Quiz Final");
-        }
-    }
-    
-    
-    private void construirPainelLateral() {
-        painelPontuacoes = new JPanel(new BorderLayout());
-        painelPontuacoes.setBackground(fundoPainel);
-        painelPontuacoes.setPreferredSize(new Dimension(360, 0));
-        painelPontuacoes.setBorder(BorderFactory.createEmptyBorder(18, 18, 18, 18));
-
-        JLabel titulo = new JLabel("Scoreboard", SwingConstants.LEFT);
-        titulo.setForeground(Color.WHITE);
-        titulo.setFont(new Font("Arial", Font.BOLD, 22));
-        titulo.setBorder(BorderFactory.createEmptyBorder(0, 0, 12, 0));
-        painelPontuacoes.add(titulo, BorderLayout.NORTH);
-
-        listaEquipasPanel = new JPanel();
-        listaEquipasPanel.setLayout(new BoxLayout(listaEquipasPanel, BoxLayout.Y_AXIS));
-        listaEquipasPanel.setBackground(fundoPainel);
-
-        JScrollPane scroll = new JScrollPane(listaEquipasPanel);
-        scroll.setBorder(BorderFactory.createEmptyBorder());
-        scroll.getViewport().setOpaque(false);
-        scroll.setOpaque(false);
-        scroll.getVerticalScrollBar().setUnitIncrement(12);
-
-        painelPontuacoes.add(scroll, BorderLayout.CENTER);
-        frame.add(painelPontuacoes, BorderLayout.EAST);
-        atualizarPainelPontuacoes();
-    }
-
-    private void atualizarPainelPontuacoes() {
-        if (painelPontuacoes == null || listaEquipasPanel == null) return;
-
-        listaEquipasPanel.removeAll();
-        List<TeamScore> equipas = new ArrayList<>(agruparPontuacoesPorEquipa().values());
-        equipas.sort(Comparator.comparingInt((TeamScore e) -> e.totalPontos).reversed());
-
-        if (equipas.isEmpty()) {
-            JLabel vazio = new JLabel("Sem equipas para mostrar");
-            vazio.setForeground(Color.WHITE);
-            vazio.setAlignmentX(Component.LEFT_ALIGNMENT);
-            listaEquipasPanel.add(vazio);
-        } else {
-            int posicao = 1;
-            for (TeamScore equipa : equipas) {
-                listaEquipasPanel.add(criarCartaoEquipa(posicao, equipa));
-                posicao++;
-            }
-        }
-
-        listaEquipasPanel.revalidate();
-        listaEquipasPanel.repaint();
-    }
-
-    private JPanel criarCartaoEquipa(int posicao, TeamScore equipaInfo) {
-        JPanel card = new JPanel(new BorderLayout());
-        card.setBackground(new Color(54, 34, 126));
-        card.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
-        card.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        JLabel titulo = new JLabel("#" + posicao + " " + equipaInfo.nome + " · " + equipaInfo.totalPontos + " pts");
-        titulo.setForeground(Color.WHITE);
-        titulo.setFont(new Font("Arial", Font.BOLD, 16));
-
-        JPanel jogadoresPanel = new JPanel();
-        jogadoresPanel.setLayout(new BoxLayout(jogadoresPanel, BoxLayout.Y_AXIS));
-        jogadoresPanel.setBackground(card.getBackground());
-        jogadoresPanel.setBorder(BorderFactory.createEmptyBorder(8, 0, 0, 0));
-
-        List<Jogador> jogadoresOrdenados = new ArrayList<>(equipaInfo.jogadores);
-        jogadoresOrdenados.sort(Comparator.comparingInt(Jogador::getPontuacao).reversed());
-
-        for (Jogador j : jogadoresOrdenados) {
-            JLabel jogadorLabel = new JLabel("• " + j.getNome() + " — " + j.getPontuacao() + " pts");
-            jogadorLabel.setForeground(new Color(230, 230, 255));
-            jogadorLabel.setFont(new Font("Arial", Font.PLAIN, 14));
-            jogadoresPanel.add(jogadorLabel);
-        }
-
-        card.add(titulo, BorderLayout.NORTH);
-        card.add(jogadoresPanel, BorderLayout.CENTER);
-        card.add(new JSeparator(), BorderLayout.SOUTH);
-        return card;
-    }
-
-    private Map<String, TeamScore> agruparPontuacoesPorEquipa() {
-        Map<String, TeamScore> mapa = new LinkedHashMap<>();
-        List<Jogador> jogadores = gameState != null ? gameState.getJogadores() : Collections.emptyList();
-        for (Jogador j : jogadores) {
-            String nomeEquipa = j.getEquipa() != null ? j.getEquipa() : "Sem equipa";
-            TeamScore equipa = mapa.computeIfAbsent(nomeEquipa, TeamScore::new);
-            equipa.totalPontos += j.getPontuacao();
-            equipa.jogadores.add(j);
-        }
-        return mapa;
-    }
-
-    private void construirPainelSubmissoes() {
-        painelSubmissoes = new JPanel(new BorderLayout());
-        painelSubmissoes.setBackground(new Color(28, 18, 80));
-        painelSubmissoes.setBorder(BorderFactory.createEmptyBorder(14, 24, 18, 24));
-
-        JLabel titulo = criarTituloSecundario("Envios desta pergunta");
-        painelSubmissoes.add(titulo, BorderLayout.NORTH);
-
-        JPanel colunas = new JPanel(new GridLayout(1, 2, 14, 0));
-        colunas.setBackground(painelSubmissoes.getBackground());
-
-        listaSubmissoesJogadores = criarListaSubmissoesPanel();
-        listaSubmissoesEquipas = criarListaSubmissoesPanel();
-
-        colunas.add(criarColunaSubmissoes("Jogadores que já enviaram", listaSubmissoesJogadores));
-        colunas.add(criarColunaSubmissoes("Equipas com resposta", listaSubmissoesEquipas));
-        painelSubmissoes.add(colunas, BorderLayout.CENTER);
-
-        frame.add(painelSubmissoes, BorderLayout.SOUTH);
-        atualizarPainelSubmissoes();
-    }
-
-    private JPanel criarColunaSubmissoes(String titulo, JPanel lista) {
-        JPanel coluna = new JPanel(new BorderLayout());
-        coluna.setBackground(new Color(35, 22, 98));
-        coluna.setBorder(BorderFactory.createEmptyBorder(10, 12, 12, 12));
-
-        JLabel label = criarTituloSecundario(titulo);
-        label.setBorder(BorderFactory.createEmptyBorder(0, 0, 8, 0));
-        coluna.add(label, BorderLayout.NORTH);
-
-        coluna.add(lista, BorderLayout.CENTER);
-
-        return coluna;
-    }
-
-    private void atualizarPainelSubmissoes() {
-        if (listaSubmissoesJogadores == null || listaSubmissoesEquipas == null) return;
-
-        preencherListaSubmissoes(listaSubmissoesJogadores, jogadoresResponderam, "Nenhum jogador respondeu ainda");
-        preencherListaSubmissoes(listaSubmissoesEquipas, equipasResponderam, "Nenhuma equipa respondeu ainda");
-
-        painelSubmissoes.revalidate();
-        painelSubmissoes.repaint();
-    }
-
-    private void preencherListaSubmissoes(JPanel coluna, Set<String> valores, String vazioMensagem) {
-        coluna.removeAll();
-        if (valores.isEmpty()) {
-            JLabel vazio = new JLabel(vazioMensagem);
-            vazio.setForeground(Color.WHITE);
-            coluna.add(vazio);
-            return;
-        }
-        for (String nome : valores) {
-            coluna.add(criarChip(nome));
-        }
-    }
-
-    private JPanel criarListaSubmissoesPanel() {
-        JPanel lista = new JPanel(new GridLayout(0, 4, 8, 8));
-        lista.setBackground(new Color(35, 22, 98));
-        return lista;
-    }
-
-    private JPanel criarChip(String texto) {
-        JPanel chip = new JPanel();
-        chip.setBackground(new Color(76, 170, 255));
-        chip.setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 10));
-        JLabel l = new JLabel(texto);
-        l.setForeground(Color.WHITE);
-        l.setFont(new Font("Arial", Font.BOLD, 12));
-        chip.add(l);
-        return chip;
-    }
-
-    public void registrarRespostaRecebida(String jogadorNome, String equipaNome) {
-        if (jogadorNome != null && !jogadorNome.isBlank()) {
-            jogadoresResponderam.add(jogadorNome);
-        }
-        if (equipaNome != null && !equipaNome.isBlank()) {
-            equipasResponderam.add(equipaNome);
-        }
-        atualizarPainelSubmissoes();
-    }
-
-    private JLabel criarTituloSecundario(String texto) {
-        JLabel label = new JLabel(texto);
-        label.setForeground(Color.WHITE);
-        label.setFont(new Font("Arial", Font.BOLD, 16));
-        return label;
-    }
-
-    private static class TeamScore {
-        String nome;
-        int totalPontos = 0;
-        List<Jogador> jogadores = new ArrayList<>();
-
-        TeamScore(String nome) {
-            this.nome = nome;
         }
     }
 }
-    

@@ -8,6 +8,7 @@ import Quizz.Pergunta;
 
 /**
  * Mantém o estado do jogo no cliente sem recorrer a singletons estáticos.
+ * Might not be needed
  */
 public class ClientGameState {
     private final List<Pergunta> perguntas;

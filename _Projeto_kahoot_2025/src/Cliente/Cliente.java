@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
+import java.util.concurrent.ThreadLocalRandom;
 
 import Protocolos.CheckPlayerRequest;
 import Protocolos.CheckPlayerResponse;
@@ -21,8 +22,12 @@ import Protocolos.CheckSalaResponse;
 import Protocolos.GameStartRequest;
 import Protocolos.JoinRequest;
 import Protocolos.JoinResponse;
+import Protocolos.Mensagem;
+import Protocolos.NextQuestion;
+import Protocolos.StartNotification;
 import Protocolos.TeamStatusRequest;
 import Protocolos.TeamStatusResponse;
+import Quizz.Pergunta;
 
 //Vcs vão ter de manter a socket aberta para poderem ler pedidos por parte do 
 //cliente e poder enviar um pedido de espera para não haver o kick start 
@@ -84,7 +89,7 @@ public class Cliente {
                     
                 } else if(answer instanceof TeamStatusResponse){
                     System.out.println("Estado equipa: " + ((TeamStatusResponse) answer).getEquipaNome());
-                } else if(answer instanceof GameStartRequest){
+                } else if(answer instanceof StartNotification){
                     return true;
                 }
             }
@@ -94,9 +99,7 @@ public class Cliente {
         }catch (IOException | ClassNotFoundException e) {
             System.err.println(" Erro ao ligar ao servidor: " + e.getMessage());
             return false;
-        } finally{
-            fechar();
-        }
+        } 
     }
 
     /**
@@ -184,10 +187,35 @@ public class Cliente {
         }
     }
 
-    public synchronized void enviarGameStartRequest(String pin) throws IOException {
-        GameStartRequest req = new GameStartRequest(pin, nome, equipa); // or fields you need
-        out.writeObject(req);
-        out.flush();
+    public synchronized NextQuestion enviarGameStartRequest(String pin) {
+        try {
+            // REMOVED: Object obj = in.readObject(); 
+            // REASON: ligar() already consumed the StartNotification. 
+            // We must simply send the request now.
+
+            System.out.println("Sending GameStartRequest...");
+            
+            // Use 0 or -1 for question ID since Server decides the random question
+            int questionID = 0; 
+            int timeLimitSeconds = 45;
+
+            GameStartRequest req = new GameStartRequest(pin, timeLimitSeconds, questionID);
+            out.writeObject(req);
+            out.flush();
+
+            System.out.println("Waiting for NextQuestion...");
+            Object response = in.readObject(); // Now we wait for the Question data
+            
+            if (response instanceof NextQuestion) {
+                return (NextQuestion) response;
+            }
+
+        } catch (Exception e) {
+            System.err.println("CRITICAL ERROR in enviarGameStartRequest:");
+            e.printStackTrace(); // <--- ADD THIS to see the real error in the console
+            return null;
+        }
+        return null;
     }
 
     public void fechar() {

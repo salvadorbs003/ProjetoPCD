@@ -1,43 +1,41 @@
 package Protocolos;
 
 import java.util.List;
+import GameState.ScoreBoard;
+import Quizz.Pergunta;
 
 public class NextQuestion extends Mensagem {
     private final String pinSala;
     private final int round;
-    private final int questionId;
-    private final String questionText;
-    private final List<String> options;
-    private final int timeLimitSeconds;
-    private final List<PlayerScore> scoreboard;
-    private final int totalQuestions;
+    private final Pergunta pergunta;
+    private final int time;
+    private final ScoreBoard scoreboard;
 
-    public NextQuestion(String pinSala, int round, int questionId, String questionText,
-                             List<String> options, int timeLimitSeconds,
-                             List<PlayerScore> scoreboard, int totalQuestions) {
+    public NextQuestion(String pinSala, int round, int time,  Pergunta pergunta, ScoreBoard scoreboard) {
         this.pinSala = pinSala;
         this.round = round;
-        this.questionId = questionId;
-        this.questionText = questionText;
-        this.options = options;
-        this.timeLimitSeconds = timeLimitSeconds;
+        this.pergunta = pergunta;
+        this.time = time;
         this.scoreboard = scoreboard;
-        this.totalQuestions = totalQuestions;
     }
-    
-    public static class PlayerScore implements java.io.Serializable {
-        private final String teamName;
-        private final String playerName;
-        private final int points;
 
-        public PlayerScore(String teamName, String playerName, int points) {
-            this.teamName = teamName;
-            this.playerName = playerName;
-            this.points = points;
-        }
-        public String getTeamName() { return teamName; }
-        public String getPlayerName() { return playerName; }
-        public int getPoints() { return points; }
+    public String getPinSala() {
+        return pinSala;
     }
-    
+
+    public int getRound() {
+        return round;
+    }
+
+    public Pergunta getPergunta() {
+        return pergunta;
+    }
+
+    public int getTime() {
+        return time;
+    }
+
+    public ScoreBoard getScoreboard() {
+        return scoreboard;
+    }
 }

@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Scanner;
+import java.util.concurrent.ThreadLocalRandom;
 
 import Cliente.ClientHandler;
 import GameState.Equipa;
@@ -23,6 +24,7 @@ import Protocolos.CheckPlayerRequest;
 import Protocolos.CheckPlayerResponse;
 import Protocolos.CheckSalaRequest;
 import Protocolos.CheckSalaResponse;
+import Protocolos.ErrorResponse;
 import Protocolos.GameStartRequest;
 import Protocolos.JoinRequest;
 import Protocolos.JoinResponse;
@@ -31,9 +33,11 @@ import Protocolos.LobbyStateResponse;
 import Protocolos.Mensagem;
 import Protocolos.TeamStatusRequest;
 import Protocolos.TeamStatusResponse;
+import Quizz.Pergunta;
 import Quizz.Quiz;
 import Protocolos.MensagemChat;
 import Protocolos.NextQuestion;
+import Protocolos.StartNotification;
 
 
 public class Servidor {
@@ -162,22 +166,27 @@ public class Servidor {
     
     public static void processMsg(ClientHandler handler, Mensagem msg) {
         try {
-            if (msg instanceof JoinRequest req) {
-                processarJoin(handler, req);
-
-            } else if (msg instanceof CheckSalaRequest req) {
-                handler.enviarMensagem(processarCheckSala(req));
-
-            } else if (msg instanceof TeamStatusRequest req) {
-                handler.enviarMensagem(processarTeamStatus(req));
-
-            } else if (msg instanceof MensagemChat chat) {
-                notificarTodosClientes(handler.getPinSala(), chat);
-
-            } else if (msg instanceof CheckPlayerRequest req) {
-                handler.enviarMensagem(processarCheckPlayer(req));
-
-            } else {
+            if(msg instanceof Mensagem){
+                if (msg instanceof JoinRequest req) {
+                    processarJoin(handler, req);
+    
+                } else if (msg instanceof CheckSalaRequest req) {
+                    handler.enviarMensagem(processarCheckSala(req));
+    
+                } else if (msg instanceof TeamStatusRequest req) {
+                    handler.enviarMensagem(processarTeamStatus(req));
+    
+                } else if (msg instanceof MensagemChat chat) {
+                    notificarTodosClientes(handler.getPinSala(), chat);
+    
+                } else if (msg instanceof CheckPlayerRequest req) {
+                    handler.enviarMensagem(processarCheckPlayer(req));
+    
+                } else if (msg instanceof GameStartRequest req) {
+                    handler.enviarMensagem(processarGameStart(handler, req));
+                }
+            }
+            else {
                 handler.enviarMensagem(new ErrorResponse("Mensagem não reconhecida"));
             }
 
@@ -198,7 +207,6 @@ public class Servidor {
     }
     
     public static void processarJoin(ClientHandler handler, JoinRequest join) {
-        int round = 0;
         System.out.println("Im on processarJoin method!");
 
         GameState sala = getSala(join.getPinSala());
@@ -239,6 +247,8 @@ public class Servidor {
             handler.setContext(join.getPinSala(), nome.trim(), equipa.trim());
             registarCliente(join.getPinSala(), handler);
             
+            handler.enviarMensagem(JoinResponse.ok("Jogador '" + nome + "' juntou-se à equipa '" + equipa + "' com sucesso!"));
+            
             Equipa equipaAtualizada = sala.getEquipa(equipa);
             TeamStatusResponse estadoEquipa = equipaAtualizada.estaCompleta()
                 ? TeamStatusResponse.completa(equipa, equipaAtualizada.getNumeroJogadores())
@@ -246,13 +256,13 @@ public class Servidor {
             
             notificarTodosClientes(join.getPinSala(), estadoEquipa);
             
-            // if (sala.canStart()) {
-            //     NextQuestion notify = new NextQuestion(join.getPinSala(), round, );
-            //     notificarTodosClientes(join.getPinSala(), notify);
-            // }
-            
-            handler.enviarMensagem(JoinResponse.ok("Jogador '" + nome + "' juntou-se à equipa '" + equipa + "' com sucesso!"));
+            if (sala.canStart()) {
+                int question = ThreadLocalRandom.current().nextInt(0, sala.getPerguntas().size());
+                StartNotification notify = new StartNotification(join.getPinSala(), question);
+                notificarTodosClientes(join.getPinSala(), notify);
+            }
         }
+            
     }
     
     public static TeamStatusResponse processarTeamStatus(TeamStatusRequest req) {       
@@ -288,7 +298,7 @@ public class Servidor {
     
     public static CheckPlayerResponse processarCheckPlayer(CheckPlayerRequest req){
         System.out.println("Im on processarCheckPlayer method!");
-         GameState sala = getSala(req.getPin());
+        GameState sala = getSala(req.getPin());
         if (sala == null) {
             return CheckPlayerResponse.error("Sala não existe");
         }
@@ -298,12 +308,40 @@ public class Servidor {
                 : CheckPlayerResponse.ok("Jogador não existe");
         }
     }
-    
-    private static class ErrorResponse extends Mensagem {
-        private static final long serialVersionUID = 1L;
-        private final String error;
-        public ErrorResponse(String error) { this.error = error; }
-        public String getError() { return error; }
+
+    public static NextQuestion processarGameStart(ClientHandler handler, GameStartRequest req){
+        System.out.println("Im on processarGameStart method!");
+        GameState sala = getSala(req.getPinSala());
+        if(sala == null) return null;
+
+        synchronized(sala){
+            if (!sala.isRoundInitialized()) {
+                System.out.println("Initializing round number " + sala.getRound());
+                sala.setAvailableQ(req.getQuestion());
+                sala.prepareNextRound(req.getTimeLimitSeconds());
+            }
+
+            Pergunta currentP = sala.getCurrentPergunta();
+
+        
+            // Safety check if game is over
+            if (currentP == null) {
+                // Send Game Over / Classification message (Logic to be implemented)
+                System.out.println("The question is null dude");
+                return null;
+            }
+
+            // 2. CONSTRUCT the response object
+            // We send an empty list for scoreboard for now (implement later)
+            NextQuestion nextQMsg = new NextQuestion(
+                req.getPinSala(),
+                sala.getRound(),
+                req.getTimeLimitSeconds(),
+                sala.getCurrentPergunta(),
+                sala.getScoreboard()
+            );
+            return nextQMsg;
+        }
     }
 
 }

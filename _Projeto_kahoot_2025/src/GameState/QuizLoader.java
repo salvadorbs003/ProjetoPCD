@@ -5,14 +5,12 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-
 import com.google.gson.Gson;
-
 import Quizz.Quiz;
-
+import Quizz.Pergunta;
 
 public class QuizLoader {
-   public static Quiz load(int index) {
+    public static Quiz load(int index) {
         Gson gson = new Gson();
 
         try (InputStream is = QuizLoader.class.getClassLoader()
@@ -23,21 +21,32 @@ public class QuizLoader {
             }
 
             InputStreamReader reader = new InputStreamReader(is, StandardCharsets.UTF_8);
-
             QuizData data = gson.fromJson(reader, QuizData.class);
 
             if (data == null || data.quizzes == null || data.quizzes.size() <= index) {
-                System.out.println("sike there none");
+                System.out.println("Quiz not found.");
                 return null;
             }
 
-            return data.quizzes.get(index);
+            Quiz quiz = data.quizzes.get(index);
+
+            // --- FIX: Assign sequential IDs (1, 2, 3...) ---
+            if (quiz != null && quiz.getPerguntas() != null) {
+                List<Pergunta> questions = quiz.getPerguntas();
+                for (int i = 0; i < questions.size(); i++) {
+                    questions.get(i).setId(i + 1); 
+                }
+            }
+            // -----------------------------------------------
+
+            return quiz;
 
         } catch (Exception e) {
             e.printStackTrace();
             return null;
         }
     }
+
     private static class QuizData {
         List<Quiz> quizzes;
     }

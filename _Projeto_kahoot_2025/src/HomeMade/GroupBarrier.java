@@ -1,12 +1,11 @@
 package HomeMade;
 
-public class GroupBarrier extends HomeMade{
+public class GroupBarrier extends HomeMade {
     private int arrived = 0;
-    private Runnable barrierAction;
 
-    public GroupBarrier(long timeoutMil, int teamSize, Runnable barrierAction) {
+    // Constructor now only takes timeout and team size
+    public GroupBarrier(long timeoutMil, int teamSize) {
         super(timeoutMil, teamSize);   // HomeMade handles timeout + finish
-        this.barrierAction = barrierAction;
     }
 
     public synchronized void await() {
@@ -17,8 +16,7 @@ public class GroupBarrier extends HomeMade{
         // Normal barrier completion: all team members answered
         if (arrived == players) {  // 'players' is inherited and equals teamSize
             finish = true;
-            if (barrierAction != null) barrierAction.run();
-            notifyAll();
+            notifyAll(); // Release waiting threads
             return;
         }
 
@@ -35,11 +33,8 @@ public class GroupBarrier extends HomeMade{
 
     @Override
     protected synchronized void onFinish() {
-        // Triggered by HomeMade when timeout happens
-        if (barrierAction != null)
-            barrierAction.run();
-        // notifyAll() is already done in HomeMade after calling onFinish()
+        // Triggered by HomeMade when timeout happens.
+        // We don't need to do anything special here anymore.
+        // HomeMade class will automatically call notifyAll() after this method returns.
     }
-
-
 }

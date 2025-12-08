@@ -1,6 +1,5 @@
 package Protocolos;
 
-import java.util.List;
 import GameState.ScoreBoard;
 import Quizz.Pergunta;
 

@@ -35,9 +35,6 @@ public class Pergunta implements Serializable{
 	    public String getQuestion() {
 	        return question;
 	    }
-	    public void setQuestion(String question) {
-	        this.question = question;
-	    }
 	    public List<String> getOptions() {
 	        return options;
 	    }
@@ -47,14 +44,9 @@ public class Pergunta implements Serializable{
 	    public int getCorrect() {
 	        return correct;
 	    }
-	    public void setCorrect(int correct) {
-	        this.correct = correct;
-	    }
+
 	    public int getPoints() {
 	        return points;
-	    }
-	    public void setPoints(int points) {
-	        this.points = points;
 	    }
 
 	    public int getTempo() {
@@ -78,25 +70,10 @@ public class Pergunta implements Serializable{
 	        return getQuestion();
 	    }
 
-	    public void setTexto(String texto) {
-	        setQuestion(texto);
-	    }
-
 	    public List<String> getOpcoes() {
 	        return getOptions();
 	    }
 
-	    public void setOpcoes(List<String> opcoes) {
-	        setOptions(opcoes);
-	    }
-
-	    public int getIndiceCorreto() {
-	        return getCorrect();
-	    }
-
-	    public void setIndiceCorreto(int indice) {
-	        setCorrect(indice);
-	    }
 
 		@Override
 		public String toString() {

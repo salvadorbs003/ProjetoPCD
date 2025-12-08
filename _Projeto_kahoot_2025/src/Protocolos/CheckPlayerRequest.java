@@ -1,7 +1,5 @@
 package Protocolos;
 
-import java.io.Serializable;
-
 public class CheckPlayerRequest extends Mensagem{
     private static final long serialVersionUID = 1L;
     private final String namePlayer;

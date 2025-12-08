@@ -20,6 +20,7 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 
 import Cliente.Cliente;
@@ -33,14 +34,14 @@ public class Pergunta_Respostas_Frame {
     private JLabel labelTimer;
     private JLabel labelQuestion;
     private JPanel panelAnswers;
-    
+
     private Timer timer;
     private int remainingTime;
-    
+
     // Data
     private final NextQuestion questionData;
     private final Pergunta pergunta;
-    private final Cliente client; 
+    private final Cliente client;
 
     // Kahoot Colors
     private final Color COLOR_BG = new Color(70, 23, 143); // Deep Purple
@@ -48,12 +49,12 @@ public class Pergunta_Respostas_Frame {
     private final Color COLOR_BTN_BLUE = new Color(19, 104, 206);
     private final Color COLOR_BTN_YELLOW = new Color(216, 158, 0);
     private final Color COLOR_BTN_GREEN = new Color(38, 137, 12);
-    private final Color[] BTN_COLORS = {COLOR_BTN_RED, COLOR_BTN_BLUE, COLOR_BTN_YELLOW, COLOR_BTN_GREEN};
+    private final Color[] BTN_COLORS = { COLOR_BTN_RED, COLOR_BTN_BLUE, COLOR_BTN_YELLOW, COLOR_BTN_GREEN };
 
     public Pergunta_Respostas_Frame(NextQuestion data, Cliente client) {
         this.questionData = data;
         this.client = client;
-        
+
         // Extract data from the Protocol object
         this.pergunta = data.getPergunta();
         this.remainingTime = data.getTime();
@@ -83,15 +84,15 @@ public class Pergunta_Respostas_Frame {
         labelTimer.setBackground(new Color(50, 0, 100));
         labelTimer.setPreferredSize(new Dimension(80, 80));
         labelTimer.setBorder(BorderFactory.createLineBorder(Color.WHITE, 2, true));
-        
+
         // Question Text (Center) - Accessed via Pergunta object
         labelQuestion = new JLabel("<html><center>" + pergunta.getTexto() + "</center></html>", SwingConstants.CENTER);
         labelQuestion.setFont(new Font("Arial", Font.BOLD, 36));
         labelQuestion.setForeground(Color.WHITE);
-        
+
         headerPanel.add(labelTimer, BorderLayout.WEST);
         headerPanel.add(labelQuestion, BorderLayout.CENTER);
-        
+
         frame.add(headerPanel, BorderLayout.NORTH);
 
         // --- 2. ANSWERS (Center) ---
@@ -122,7 +123,10 @@ public class Pergunta_Respostas_Frame {
         btn.setForeground(Color.WHITE);
         btn.setBackground(color);
         btn.setFocusPainted(false);
-        
+
+        btn.setOpaque(true);
+        btn.setBorderPainted(false);
+
         btn.addActionListener(e -> submitAnswer(index));
         return btn;
     }
@@ -135,14 +139,14 @@ public class Pergunta_Respostas_Frame {
         panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         ScoreBoard sb = questionData.getScoreboard();
-        
+
         // Determine Title based on ScoreBoard Type
         String titleText = (sb.getType() == ScoreBoard.ScoreType.TEAM) ? "Team Leaderboard" : "Player Leaderboard";
         JLabel title = new JLabel(titleText);
         title.setFont(new Font("Arial", Font.BOLD, 20));
         title.setForeground(Color.WHITE);
         title.setAlignmentX(Component.CENTER_ALIGNMENT);
-        
+
         panel.add(title);
         panel.add(Box.createVerticalStrut(15));
 
@@ -155,11 +159,12 @@ public class Pergunta_Respostas_Frame {
         } else {
             // Render Player Scores
             for (ScoreBoard.PlayerScore ps : sb.getPlayerScores()) {
-                // You can include team name in display if you want: ps.getPlayerName() + " (" + ps.getTeamName() + ")"
+                // You can include team name in display if you want: ps.getPlayerName() + " (" +
+                // ps.getTeamName() + ")"
                 addScoreCard(panel, ps.getPlayerName(), ps.getPoints());
             }
         }
-        
+
         // Wrap in ScrollPane
         JPanel wrapper = new JPanel(new BorderLayout());
         wrapper.setPreferredSize(new Dimension(280, 0));
@@ -178,7 +183,7 @@ public class Pergunta_Respostas_Frame {
         JLabel nameLbl = new JLabel(name);
         nameLbl.setFont(new Font("Arial", Font.BOLD, 14));
         nameLbl.setForeground(Color.BLACK);
-        
+
         JLabel scoreLbl = new JLabel(String.valueOf(points));
         scoreLbl.setFont(new Font("Arial", Font.BOLD, 14));
         scoreLbl.setForeground(new Color(70, 23, 143)); // Purple text for points
@@ -201,7 +206,7 @@ public class Pergunta_Respostas_Frame {
                     timer.stop();
                     disableButtons();
                     JOptionPane.showMessageDialog(frame, "Time's up!");
-                    submitAnswer(-1); 
+                    submitAnswer(-1);
                 }
             }
         });
@@ -209,25 +214,65 @@ public class Pergunta_Respostas_Frame {
         timer.start();
     }
 
-    private void submitAnswer(int index) {
-        timer.stop();
-        disableButtons();
-        
-        if(index >= 0) {
-            System.out.println("Selected answer index: " + index);
-            // TODO: Call client method to send answer to server
-            // client.enviarResposta(index); 
-        } else {
-            System.out.println("Time out / No answer");
-        }
-    }
-
     private void disableButtons() {
         for (Component c : panelAnswers.getComponents()) {
             if (c instanceof JButton) {
                 c.setEnabled(false);
-                ((JButton)c).setBackground(Color.GRAY);
+                ((JButton) c).setBackground(Color.GRAY);
             }
         }
+    }
+
+    // In src/GUI/Pergunta_Respostas_Frame.java
+
+    private void submitAnswer(int index) {
+        // 1. Lock UI
+        timer.stop();
+        disableButtons();
+
+        // 2. Start Logic Thread
+        new Thread(() -> {
+            // A. Send Answer and get Score immediately
+            String resultado;
+            if (index >= 0) {
+                resultado = client.enviarResposta(index);
+            } else {
+                resultado = client.enviarResposta(-1); // Timeout
+            }
+
+            // B. Update UI to show we are waiting (Non-blocking!)
+            String finalMsg = resultado + "\n\nÀ espera dos outros jogadores...";
+            SwingUtilities.invokeLater(() -> {
+                // Instead of a Popup, we change the question text or title to show status
+                labelQuestion.setText("<html><center>" + finalMsg.replace("\n", "<br>") + "</center></html>");
+                // Optional: You could also change the background color here to indicate correct/wrong
+            });
+
+            // C. Request Next Question (This BLOCKS here until everyone finishes)
+            Object response = client.pedirProximaPergunta(questionData.getRound());
+
+            // D. Server responded! Now we switch screens.
+            SwingUtilities.invokeLater(() -> {
+                frame.dispose(); // Close OLD frame only now
+
+                if (response instanceof Protocolos.NextQuestion) {
+                    // Open NEXT question
+                    new Pergunta_Respostas_Frame((Protocolos.NextQuestion) response, client);
+                } 
+                else if (response instanceof Protocolos.GameFinished) {
+                    // Open PODIUM
+                    Protocolos.GameFinished fin = (Protocolos.GameFinished) response;
+                    new Classificacao_Final_Frame(
+                        fin.getFinalScoreboard(), 
+                        client.getNome(), 
+                        "Fim do Jogo"
+                    );
+                }
+                else if (response instanceof Protocolos.ErrorResponse) {
+                    JOptionPane.showMessageDialog(null, "Erro: " + ((Protocolos.ErrorResponse) response).getError());
+                }
+            });
+
+        }).start();
     }
 }
